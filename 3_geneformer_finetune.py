@@ -43,8 +43,7 @@ def getParser():
     parser.add_argument("--model", type=str, default=None, help="model file")
     parser.add_argument("--output", type=str, default=None, help="output file")
     parser.add_argument("--epochs", type=int, default=10, help="epochs")
-    parser.add_argument("--batch_size", type=int, default=32, help="batch size")
-
+    parser.add_argument("--batch-size", type=int, default=32, help="batch size")
 
     return parser
 
@@ -81,8 +80,7 @@ if __name__ == "__main__":
         "per_device_train_batch_size": args.batch_size,
         "per_device_eval_batch_size": args.batch_size,
         "seed": 73,
-        "epochs": args.epochs,
-        
+        "num_train_epochs": args.epochs,
     }
     cc = Classifier(
         classifier="cell",
