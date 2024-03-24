@@ -46,7 +46,7 @@ def getParser():
     parser.add_argument("--batch-size", type=int, default=32, help="batch size")
     parser.add_argument(
         "--precision",
-        type="str",
+        type=str,
         choices=["fp16", "bf16", "tf32"],
         default="tf32",
         help="precision",
