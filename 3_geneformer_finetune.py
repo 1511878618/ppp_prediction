@@ -44,7 +44,19 @@ def getParser():
     parser.add_argument("--output", type=str, default=None, help="output file")
     parser.add_argument("--epochs", type=int, default=10, help="epochs")
     parser.add_argument("--batch-size", type=int, default=32, help="batch size")
-
+    parser.add_argument(
+        "--precision",
+        type="str",
+        choice=["fp16", "BF16", "TF32"],
+        default="TF32",
+        help="precision",
+    )
+    parser.add_argument(
+        "--gradient-accumulation-steps",
+        type=int,
+        default=1,
+        help="gradient accumulation steps",
+    )
     return parser
 
 from pathlib import Path    
@@ -81,7 +93,11 @@ if __name__ == "__main__":
         "per_device_eval_batch_size": args.batch_size,
         "seed": 73,
         "num_train_epochs": args.epochs,
+        "fp16": args.precision == "fp16",
+        "BF16": args.precision == "BF16",
+        "gradient_accumulation_steps": args.gradient_accumulation_steps,
     }
+
     cc = Classifier(
         classifier="cell",
         cell_state_dict={"state_key": "incident_cad", "states": "all"},
