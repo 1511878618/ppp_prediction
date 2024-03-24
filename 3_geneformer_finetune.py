@@ -47,8 +47,8 @@ def getParser():
     parser.add_argument(
         "--precision",
         type="str",
-        choice=["fp16", "BF16", "TF32"],
-        default="TF32",
+        choices=["fp16", "bf16", "tf32"],
+        default="tf32",
         help="precision",
     )
     parser.add_argument(
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         "seed": 73,
         "num_train_epochs": args.epochs,
         "fp16": args.precision == "fp16",
-        "BF16": args.precision == "BF16",
+        "bf16": args.precision == "bf16",
         "gradient_accumulation_steps": args.gradient_accumulation_steps,
     }
 
