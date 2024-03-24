@@ -7,7 +7,7 @@
 @version      :1.0
 '''
 
-# from .ppp_aging import 
+# from .ppp_aging import
 
 
 import argparse
@@ -21,7 +21,6 @@ def configure_logger():
     logFormatter = logging.Formatter("[%(levelname)s]  %(message)s")
     logger = logging.getLogger()
     logger.setLevel(logging.NOTSET)
-
 
 
 def getParser():
@@ -60,10 +59,8 @@ if __name__ == "__main__":
     test_data = args.test
     model_directory = args.model
     output = args.output
-    
+
     configure_logger()
-
-
 
     current_date = datetime.datetime.now()
     datestamp = f"{str(current_date.year)[-2:]}{current_date.month:02d}{current_date.day:02d}{current_date.hour:02d}{current_date.minute:02d}{current_date.second:02d}"
@@ -99,12 +96,12 @@ if __name__ == "__main__":
         nproc=16,
     )
     cc.prepare_data(
-    input_data_file="/home/xutingfeng/ukb/project/ppp_prediction/2_Data/GeneFormer/imputed/train",
-    output_directory=output_dir,
-    output_prefix=output_prefix,
-    # split_id_dict=train_test_id_split_dict,
-    test_size=0.2,
-)
+        input_data_file=args.train,
+        output_directory=output_dir,
+        output_prefix=output_prefix,
+        # split_id_dict=train_test_id_split_dict,
+        test_size=0.2,
+    )
     # 6 layer Geneformer: https://huggingface.co/ctheodoris/Geneformer/blob/main/model.safetensors
 
     # model_used = "6_layer"
@@ -114,7 +111,6 @@ if __name__ == "__main__":
     #     model_directory = (
     #         "/home/xutingfeng/github_code/others/Geneformer/geneformer-12L-30M"
     #     )
-
 
     all_metrics = cc.validate(
         model_directory=model_directory,  # 12L
@@ -128,7 +124,7 @@ if __name__ == "__main__":
                 cell_state_dict = {"state_key": "incident_cad", "states": "all"},
                 forward_batch_size=200,
                 nproc=16)
-    
+
     all_metrics_test = cc.evaluate_saved_model(
         model_directory=f"{output_dir}/{datestamp_min}_geneformer_cellClassifier_{output_prefix}/ksplit1/",
         id_class_dict_file=f"{output_dir}/{output_prefix}_id_class_dict.pkl",
@@ -136,5 +132,3 @@ if __name__ == "__main__":
         output_directory=output_dir,
         output_prefix=output_prefix,
     )
-
-
