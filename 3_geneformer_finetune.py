@@ -15,6 +15,7 @@ import argparse
 import textwrap
 import warnings
 import logging
+from ppp_prediction.geneformer import Classifier
 
 def configure_logger():
 
@@ -77,8 +78,7 @@ def getParser():
     )
     return parser
 
-from pathlib import Path    
-from geneformer import Classifier
+from pathlib import Path
 import datetime
 if __name__ == "__main__":
     parser = getParser()

@@ -63,6 +63,7 @@ from . import classifier_utils as cu
 from . import evaluation_utils as eu
 from . import perturber_utils as pu
 from .tokenizer import TOKEN_DICTIONARY_FILE
+from ..hf_trainer import *
 
 sns.set()
 
@@ -87,6 +88,7 @@ class Classifier:
         "stratify_splits_col": {None, str},
         "forward_batch_size": {int},
         "nproc": {int},
+        "class_weights": {None, list},
     }
 
     def __init__(
@@ -106,6 +108,7 @@ class Classifier:
         no_eval=False,
         forward_batch_size=100,
         nproc=4,
+        class_weights=None,
     ):
         """
         Initialize Geneformer classifier.
@@ -189,6 +192,7 @@ class Classifier:
         self.no_eval = no_eval
         self.forward_batch_size = forward_batch_size
         self.nproc = nproc
+        self.class_weights = class_weights
 
         if self.training_args is None:
             logger.warning(
@@ -907,14 +911,27 @@ class Classifier:
             data_collator = DataCollatorForGeneClassification()
 
         # create the trainer
-        trainer = Trainer(
-            model=model,
-            args=training_args_init,
-            data_collator=data_collator,
-            train_dataset=train_data,
-            eval_dataset=eval_data,
-            compute_metrics=cu.compute_metrics,
-        )
+        ## add new trainer
+        if self.class_weights is not None:
+            trainer = WeightedLossTrainer(
+                model=model,
+                args=training_args_init,
+                data_collator=data_collator,
+                train_dataset=train_data,
+                eval_dataset=eval_data,
+                compute_metrics=cu.compute_metrics,
+                class_weights=self.class_weights,
+                gamma=self.gamma,
+            )
+        else:
+            trainer = Trainer(
+                model=model,
+                args=training_args_init,
+                data_collator=data_collator,
+                train_dataset=train_data,
+                eval_dataset=eval_data,
+                compute_metrics=cu.compute_metrics,
+            )
 
         # train the classifier
         trainer.train()
