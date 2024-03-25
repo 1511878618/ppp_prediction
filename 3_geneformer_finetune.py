@@ -85,6 +85,10 @@ def getParser():
         action="store_true",
         help="focal loss should used with --gamma and --class-weight",
     )
+    parser.add_argument("--tune-attn-only", action="store_true", help="tune attn only")
+    parser.add_argument(
+        "--tune-embedding-layer", action="store_true", help="tune embedding layer"
+    )
     return parser
 
 
@@ -141,6 +145,8 @@ if __name__ == "__main__":
         focal_loss=args.focal_loss,
         class_weights=args.class_weight,
         gamma=args.gamma,
+        tune_attn_only=args.tune_attn_only,
+        tune_embeding_layer=args.tune_embedding_layer,
     )
     cc.prepare_data(
         input_data_file=args.train,

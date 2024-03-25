@@ -91,6 +91,8 @@ class Classifier:
         "class_weights": {None, list},
         "gamma": {None, float},
         "focal_loss": {bool},
+        "tune_embeding_layer": {bool},
+        "tune_attn_only": {bool},
     }
 
     def __init__(
@@ -110,6 +112,10 @@ class Classifier:
         no_eval=False,
         forward_batch_size=100,
         nproc=4,
+        ## freeze strategy
+        tune_embeding_layer=True,  # default to tune embedding 
+        tune_attn_only=False, # default to tune all parts of  layers
+        ## loss function
         class_weights=None,
         gamma=None,
         focal_loss=False,
@@ -199,6 +205,8 @@ class Classifier:
         self.class_weights = class_weights
         self.gamma = gamma
         self.focal_loss = focal_loss
+        self.tune_embeding_layer = tune_embeding_layer
+        self.tune_attn_only = tune_attn_only
 
         if self.training_args is None:
             logger.warning(
@@ -476,7 +484,6 @@ class Classifier:
                 Path(output_directory) / f"{output_prefix}_labeled"
             ).with_suffix(".dataset")
             data.save_to_disk(data_output_path)
-        
 
     def train_all_data(
         self,
@@ -903,8 +910,19 @@ class Classifier:
             def_training_args["load_best_model_at_end"] = False
         training_args_init = TrainingArguments(**def_training_args)
         print(training_args_init)
+
+        ####### Freeze layers #####
+
         if self.freeze_layers is not None:
             def_freeze_layers = self.freeze_layers
+
+        if self.tune_embeding_layer:
+            print("Tuning embedding layer")
+
+        else:
+            print("Freezing embedding layer")
+            for param in model.bert.embeddings.parameters():
+                param.requires_grad = False
 
         if def_freeze_layers > 0:
             modules_to_freeze = model.bert.encoder.layer[:def_freeze_layers]
@@ -912,12 +930,17 @@ class Classifier:
                 for param in module.parameters():
                     param.requires_grad = False
 
-        ##### Fine-tune the model #####
-        # define the data collator
-        if self.classifier == "cell":
-            data_collator = DataCollatorForCellClassification()
-        elif self.classifier == "gene":
-            data_collator = DataCollatorForGeneClassification()
+        if len(model.bert.encoder.layer[def_freeze_layers:]) > 0:
+            if not self.tune_attn_only:
+                print("Tuning all layers")
+            else:
+                print("Tuning only attn")
+                for module in model.bert.encoder.layer[def_freeze_layers:]:
+
+                    for param in module.intermediate.parameters():
+                        param.requires_grad = False
+                    for param in module.output.parameters():
+                        param.requires_grad = False
 
         print("***********************trainable layers ***********************")
         for name, param in model.named_parameters():
@@ -928,6 +951,13 @@ class Classifier:
             if not param.requires_grad:
                 print(name)
         print("***********************End ***********************")
+
+        ##### Fine-tune the model #####
+        # define the data collator
+        if self.classifier == "cell":
+            data_collator = DataCollatorForCellClassification()
+        elif self.classifier == "gene":
+            data_collator = DataCollatorForGeneClassification()
 
         # create the trainer
         ## add new trainer
