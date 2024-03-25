@@ -64,10 +64,10 @@ def getParser():
         help="max steps",
     )
     parser.add_argument(
-        "--forzen-layer-num",
+        "--frozen-layer-num",
         type=int,
         default=0,
-        help="forzen layer num",
+        help="frozen layer num",
     )
     return parser
 
@@ -117,9 +117,9 @@ if __name__ == "__main__":
         filter_data=None,
         training_args=training_args,
         max_ncells=None,
-        freeze_layers=2,
+        freeze_layers=args.frozen_layer_num,
         num_crossval_splits=1,
-        forward_batch_size=4,
+        forward_batch_size=args.batch_size,
         nproc=16,
     )
     cc.prepare_data(
@@ -138,7 +138,8 @@ if __name__ == "__main__":
     #     model_directory = (
     #         "/home/xutingfeng/github_code/others/Geneformer/geneformer-12L-30M"
     #     )
-
+    logging.info(f"Finished Preparing Data")
+    logging.info(f"Starting Training")
     all_metrics = cc.validate(
         model_directory=model_directory,  # 12L
         prepared_input_data_file=f"{output_dir}/{output_prefix}_labeled_train.dataset",
@@ -147,6 +148,8 @@ if __name__ == "__main__":
         output_prefix=output_prefix,
         split_id_dict=None,
     )
+    logging.info(f"Finished Training")
+
     cc = Classifier(classifier="cell",
                 cell_state_dict = {"state_key": "incident_cad", "states": "all"},
                 forward_batch_size=200,
