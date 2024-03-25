@@ -76,6 +76,14 @@ def getParser():
         default=32, 
         help="test batch size",
     )
+    ## focal loss
+    parser.add_argument("--gamma", type=float, default=1.0, help="gamma of focal loss")
+    parser.add_argument("--class-weight", default=[], nargs="+", help="class weight")
+    parser.add_argument(
+        "--focal-loss",
+        action="store_true",
+        help="focal loss should used with --gamma and --class-weight",
+    )
     return parser
 
 from pathlib import Path
@@ -127,6 +135,9 @@ if __name__ == "__main__":
         num_crossval_splits=1,
         forward_batch_size=args.test_batch_size,
         nproc=16,
+        focal_loss=args.focal_loss,
+        class_weights=args.class_weight,
+        gamma=args.gamma,
     )
     cc.prepare_data(
         input_data_file=args.train,

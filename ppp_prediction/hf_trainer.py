@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 from torch import nn, Tensor
 from transformers import Trainer
 import torch
+from torch.nn import functional as F
 
 
 class FocalLoss(nn.Module):
@@ -76,7 +77,9 @@ class FocalLoss(nn.Module):
         # compute weighted cross entropy term: -alpha * log(pt)
         # (alpha is already part of self.nll_loss)
         log_p = F.log_softmax(x, dim=-1)
-        ce = self.nll_loss(log_p, y)
+        # print(log_p.dtype, y.dtype)
+
+        ce = self.nll_loss(log_p, y.long())
 
         # get true class column from each row
         all_rows = torch.arange(len(x))
@@ -99,9 +102,10 @@ class FocalLoss(nn.Module):
 
 class WeightedLossTrainer(Trainer):
     def __init__(self, *args, **kwargs):
+        self.class_weights = kwargs.pop("class_weights", [0.5, 0.5])
+        self.gamma = kwargs.pop("gamma", 1.0)
+
         super().__init__(*args, **kwargs)
-        self.class_weight = kwargs.get("class_weight", [0.5, 0.5])
-        self.gamma = kwargs.get("gamma", 2.0)
 
     def compute_loss(self, model, inputs, return_outputs=False):
         labels = inputs.get("labels")
@@ -110,6 +114,11 @@ class WeightedLossTrainer(Trainer):
         logits = outputs.get("logits")
         # compute custom loss
         # loss_fct = nn.CrossEntropyLoss(weight=torch.tensor([0.2, 0.3]))
-        loss_fct = FocalLoss(alpha=torch.tensor(self.class_weight), gamma=self.gamma)
+        loss_fct = FocalLoss(
+            alpha=torch.tensor(self.class_weights, dtype=torch.float32).to(
+                logits.device
+            ),
+            gamma=torch.tensor(self.gamma, dtype=torch.float32).to(logits.device),
+        )
         loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
         return (loss, outputs) if return_outputs else loss
