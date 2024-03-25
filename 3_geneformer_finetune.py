@@ -138,8 +138,8 @@ if __name__ == "__main__":
     #     model_directory = (
     #         "/home/xutingfeng/github_code/others/Geneformer/geneformer-12L-30M"
     #     )
-    logging.info(f"Finished Preparing Data")
-    logging.info(f"Starting Training")
+    print(f"Finished Preparing Data")
+    print(f"Starting Training")
     all_metrics = cc.validate(
         model_directory=model_directory,  # 12L
         prepared_input_data_file=f"{output_dir}/{output_prefix}_labeled_train.dataset",
@@ -148,7 +148,7 @@ if __name__ == "__main__":
         output_prefix=output_prefix,
         split_id_dict=None,
     )
-    logging.info(f"Finished Training")
+    print(f"Finished Training")
 
     cc = Classifier(classifier="cell",
                 cell_state_dict = {"state_key": "incident_cad", "states": "all"},
