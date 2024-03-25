@@ -4,6 +4,8 @@ from transformers import Trainer
 import torch
 from torch.nn import functional as F
 
+from torch.utils.data import RandomSampler, WeightedRandomSampler
+
 
 class FocalLoss(nn.Module):
     """Focal Loss, as described in https://arxiv.org/abs/1708.02002.
@@ -122,3 +124,19 @@ class WeightedLossTrainer(Trainer):
         )
         loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
         return (loss, outputs) if return_outputs else loss
+
+    def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
+
+        label = "label"  # only works for cell classification
+        import pdb
+
+        if "class_weights" in self.train_dataset.features.keys():
+            class_weights = self.train_dataset.features["class_weights"]
+
+        else:
+            class_weights = [self.class_weights[i] for i in self.train_dataset[label]]
+        sampler = WeightedRandomSampler(
+            class_weights, len(self.train_dataset), replacement=True
+        )
+
+        return sampler
