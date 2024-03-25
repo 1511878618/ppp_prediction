@@ -61,7 +61,7 @@ def getParser():
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=None,
+        default=-1,
         help="max steps",
     )
     parser.add_argument(

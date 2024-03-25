@@ -899,7 +899,7 @@ class Classifier:
             def_training_args["evaluation_strategy"] = "no"
             def_training_args["load_best_model_at_end"] = False
         training_args_init = TrainingArguments(**def_training_args)
-
+        print(training_args_init)
         if self.freeze_layers is not None:
             def_freeze_layers = self.freeze_layers
 
@@ -922,7 +922,7 @@ class Classifier:
             if len(self.class_weights) == 0:
                 from sklearn.utils import class_weight
                 import numpy as np
-
+                print(" calculating class weights from training data")
                 class_weights = dict(
                     enumerate(
                         class_weight.compute_class_weight(
@@ -934,10 +934,11 @@ class Classifier:
                         )
                     )
                 )
-                print(f"Class weights: {class_weights}, calculated from training data")
                 self.class_weights = [0]*len(class_weights)
                 for k, v in class_weights.items():
                     self.class_weights[k] = v
+            print(f"Class weights: {class_weights}")
+
 
             trainer = WeightedLossTrainer(
                 model=model,
