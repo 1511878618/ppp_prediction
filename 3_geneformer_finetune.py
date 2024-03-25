@@ -63,6 +63,12 @@ def getParser():
         default=None,
         help="max steps",
     )
+    parser.add_argument(
+        "--forzen-layer-num",
+        type=int,
+        default=0,
+        help="forzen layer num",
+    )
     return parser
 
 from pathlib import Path    
