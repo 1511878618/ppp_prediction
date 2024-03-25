@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-'''
+"""
 @Description:       :
 @Date     :2024/02/19 15:20:56
 @Author      :Tingfeng Xu
 @version      :1.0
-'''
+"""
 
 # from .ppp_aging import
 
@@ -16,6 +16,7 @@ import textwrap
 import warnings
 import logging
 from ppp_prediction.geneformer import Classifier
+
 
 def configure_logger():
 
@@ -73,7 +74,7 @@ def getParser():
     parser.add_argument(
         "--test-batch-size",
         type=int,
-        default=32, 
+        default=32,
         help="test batch size",
     )
     ## focal loss
@@ -86,8 +87,10 @@ def getParser():
     )
     return parser
 
+
 from pathlib import Path
 import datetime
+
 if __name__ == "__main__":
     parser = getParser()
     args = parser.parse_args()
@@ -105,7 +108,7 @@ if __name__ == "__main__":
         f"{str(current_date.year)[-2:]}{current_date.month:02d}{current_date.day:02d}"
     )
 
-    output_prefix =args.output
+    output_prefix = args.output
     output_dir = f"./{output_prefix}/{datestamp}"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -122,7 +125,7 @@ if __name__ == "__main__":
         "fp16": args.precision == "fp16",
         "bf16": args.precision == "bf16",
         "gradient_accumulation_steps": args.gradient_accumulation_steps,
-        "max_steps":args.max_steps if args.max_steps else None,
+        "max_steps": args.max_steps if args.max_steps else None,
     }
 
     cc = Classifier(
@@ -143,7 +146,6 @@ if __name__ == "__main__":
         input_data_file=args.train,
         output_directory=output_dir,
         output_prefix=output_prefix,
-        # split_id_dict=train_test_id_split_dict,
         test_size=0.2,
     )
 
@@ -159,10 +161,12 @@ if __name__ == "__main__":
     )
     print(f"Finished Training")
 
-    cc = Classifier(classifier="cell",
-                cell_state_dict = {"state_key": "incident_cad", "states": "all"},
-                forward_batch_size=args.test_batch_size,
-                nproc=16)
+    cc = Classifier(
+        classifier="cell",
+        cell_state_dict={"state_key": "incident_cad", "states": "all"},
+        forward_batch_size=args.test_batch_size,
+        nproc=16,
+    )
 
     all_metrics_test = cc.evaluate_saved_model(
         model_directory=f"{output_dir}/{datestamp_min}_geneformer_cellClassifier_{output_prefix}/ksplit1/",

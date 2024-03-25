@@ -368,6 +368,7 @@ class Classifier:
 
         # prepare data and labels for classification
         data = pu.load_and_filter(self.filter_data, self.nproc, input_data_file)
+        print(f"Loaded {len(data)} data from {input_data_file}")
 
         if self.classifier == "cell":
             if "label" in data.features:
@@ -441,6 +442,7 @@ class Classifier:
                     ).with_suffix(".dataset")
                     data_dict["train"].save_to_disk(train_data_output_path)
                     data_dict["test"].save_to_disk(test_data_output_path)
+
                 else:
                     data_dict, balance_df = cu.balance_attr_splits(
                         data,
@@ -474,6 +476,7 @@ class Classifier:
                 Path(output_directory) / f"{output_prefix}_labeled"
             ).with_suffix(".dataset")
             data.save_to_disk(data_output_path)
+        
 
     def train_all_data(
         self,
@@ -948,7 +951,6 @@ class Classifier:
                 for k, v in class_weights.items():
                     self.class_weights[k] = v
             print(f"Class weights: {class_weights}")
-
 
             trainer = WeightedLossTrainer(
                 model=model,
