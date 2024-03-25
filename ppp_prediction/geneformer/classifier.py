@@ -916,6 +916,16 @@ class Classifier:
         elif self.classifier == "gene":
             data_collator = DataCollatorForGeneClassification()
 
+        print("***********************trainable layers ***********************")
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                print(name)
+        print("***********************Fixed layers ***********************")
+        for name, param in model.named_parameters():
+            if not param.requires_grad:
+                print(name)
+        print("***********************End ***********************")
+
         # create the trainer
         ## add new trainer
         if self.focal_loss:
