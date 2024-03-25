@@ -57,6 +57,12 @@ def getParser():
         default=1,
         help="gradient accumulation steps",
     )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="max steps",
+    )
     return parser
 
 from pathlib import Path    
@@ -84,7 +90,7 @@ if __name__ == "__main__":
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     training_args = {
-        "num_train_epochs": 0.9,
+        # "num_train_epochs": 0.9,
         "learning_rate": 0.000804,
         "lr_scheduler_type": "polynomial",
         "warmup_steps": 1812,
@@ -96,6 +102,7 @@ if __name__ == "__main__":
         "fp16": args.precision == "fp16",
         "bf16": args.precision == "bf16",
         "gradient_accumulation_steps": args.gradient_accumulation_steps,
+        "max_steps":args.max_steps if args.max_steps else None,
     }
 
     cc = Classifier(
