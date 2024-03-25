@@ -119,7 +119,7 @@ if __name__ == "__main__":
         max_ncells=None,
         freeze_layers=args.frozen_layer_num,
         num_crossval_splits=1,
-        forward_batch_size=args.batch_size,
+        forward_batch_size=200,
         nproc=16,
     )
     cc.prepare_data(
@@ -129,15 +129,7 @@ if __name__ == "__main__":
         # split_id_dict=train_test_id_split_dict,
         test_size=0.2,
     )
-    # 6 layer Geneformer: https://huggingface.co/ctheodoris/Geneformer/blob/main/model.safetensors
 
-    # model_used = "6_layer"
-    # if model_used == "6_layer":
-    #     model_directory = "/home/xutingfeng/github_code/others/Geneformer/"
-    # elif model_used == "12_layer":
-    #     model_directory = (
-    #         "/home/xutingfeng/github_code/others/Geneformer/geneformer-12L-30M"
-    #     )
     print(f"Finished Preparing Data")
     print(f"Starting Training")
     all_metrics = cc.validate(
