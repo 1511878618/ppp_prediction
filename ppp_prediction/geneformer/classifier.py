@@ -89,6 +89,8 @@ class Classifier:
         "forward_batch_size": {int},
         "nproc": {int},
         "class_weights": {None, list},
+        "gamma": {None, float},
+        "focal_loss": {bool},
     }
 
     def __init__(
@@ -109,6 +111,8 @@ class Classifier:
         forward_batch_size=100,
         nproc=4,
         class_weights=None,
+        gamma=None,
+        focal_loss=False,
     ):
         """
         Initialize Geneformer classifier.
@@ -193,6 +197,8 @@ class Classifier:
         self.forward_batch_size = forward_batch_size
         self.nproc = nproc
         self.class_weights = class_weights
+        self.gamma = gamma
+        self.focal_loss = focal_loss
 
         if self.training_args is None:
             logger.warning(
@@ -265,7 +271,7 @@ class Classifier:
             if valid_type:
                 continue
             logger.error(
-                f"Invalid option for {attr_name}. "
+                f"Invalid option for {attr_name} with {attr_value} and type is {type(attr_value)}\n"
                 f"Valid options for {attr_name}: {valid_options}"
             )
             raise
@@ -912,7 +918,27 @@ class Classifier:
 
         # create the trainer
         ## add new trainer
-        if self.class_weights is not None:
+        if self.focal_loss:
+            if len(self.class_weights) == 0:
+                from sklearn.utils import class_weight
+                import numpy as np
+
+                class_weights = dict(
+                    enumerate(
+                        class_weight.compute_class_weight(
+                            "balanced",
+                            classes=np.unique(train_data["label"]),
+                            y=train_data[
+                                "label"
+                            ],  # TODO: this may not work for genes, need to fix
+                        )
+                    )
+                )
+                print(f"Class weights: {class_weights}, calculated from training data")
+                self.class_weights = [0]*len(class_weights)
+                for k, v in class_weights.items():
+                    self.class_weights[k] = v
+
             trainer = WeightedLossTrainer(
                 model=model,
                 args=training_args_init,
