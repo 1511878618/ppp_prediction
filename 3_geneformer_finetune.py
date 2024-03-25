@@ -69,6 +69,12 @@ def getParser():
         default=0,
         help="frozen layer num",
     )
+    parser.add_argument(
+        "--test-batch-size",
+        type=int,
+        default=32, 
+        help="test batch size",
+    )
     return parser
 
 from pathlib import Path    
@@ -102,7 +108,7 @@ if __name__ == "__main__":
         "warmup_steps": 1812,
         "weight_decay": 0.258828,
         "per_device_train_batch_size": args.batch_size,
-        "per_device_eval_batch_size": args.batch_size,
+        "per_device_eval_batch_size": args.test_batch_size,
         "seed": 73,
         "num_train_epochs": args.epochs,
         "fp16": args.precision == "fp16",
@@ -119,7 +125,7 @@ if __name__ == "__main__":
         max_ncells=None,
         freeze_layers=args.frozen_layer_num,
         num_crossval_splits=1,
-        forward_batch_size=200,
+        forward_batch_size=args.test_batch_size,
         nproc=16,
     )
     cc.prepare_data(
@@ -144,7 +150,7 @@ if __name__ == "__main__":
 
     cc = Classifier(classifier="cell",
                 cell_state_dict = {"state_key": "incident_cad", "states": "all"},
-                forward_batch_size=200,
+                forward_batch_size=args.test_batch_size,
                 nproc=16)
 
     all_metrics_test = cc.evaluate_saved_model(
