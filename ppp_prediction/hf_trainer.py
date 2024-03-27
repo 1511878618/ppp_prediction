@@ -104,7 +104,14 @@ class FocalLoss(nn.Module):
 
 class WeightedLossTrainer(Trainer):
     def __init__(self, *args, **kwargs):
-        self.class_weights = kwargs.pop("class_weights", [0.5, 0.5])
+        self.class_weight = (
+            kwargs["class_weight"]
+            if len(kwargs["class_weight"]) > 0
+            else kwargs["sampling_class_weight"]
+        )
+        self.sampling_class_weight = kwargs[
+            "sampling_class_weight"
+        ]  # must have, as auto generated
         self.gamma = kwargs.pop("gamma", 1.0)
 
         super().__init__(*args, **kwargs)
@@ -117,7 +124,7 @@ class WeightedLossTrainer(Trainer):
         # compute custom loss
         # loss_fct = nn.CrossEntropyLoss(weight=torch.tensor([0.2, 0.3]))
         loss_fct = FocalLoss(
-            alpha=torch.tensor(self.class_weights, dtype=torch.float32).to(
+            alpha=torch.tensor(self.class_weight, dtype=torch.float32).to(
                 logits.device
             ),
             gamma=torch.tensor(self.gamma, dtype=torch.float32).to(logits.device),
@@ -128,15 +135,14 @@ class WeightedLossTrainer(Trainer):
     def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
 
         label = "label"  # only works for cell classification
-        import pdb
 
-        if "class_weights" in self.train_dataset.features.keys():
-            class_weights = self.train_dataset.features["class_weights"]
+        # if "class_weight" in self.train_dataset.features.keys():
+        #     class_weight = self.train_dataset.features["class_weight"]
 
-        else:
-            class_weights = [self.class_weights[i] for i in self.train_dataset[label]]
+        # else:
+        #     class_weight = [self.class_weight[i] for i in self.train_dataset[label]]
         sampler = WeightedRandomSampler(
-            class_weights, len(self.train_dataset), replacement=True
+            self.sampling_class_weight, len(self.train_dataset), replacement=True
         )
 
         return sampler

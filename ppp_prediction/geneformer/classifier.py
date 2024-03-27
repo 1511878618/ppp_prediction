@@ -88,7 +88,7 @@ class Classifier:
         "stratify_splits_col": {None, str},
         "forward_batch_size": {int},
         "nproc": {int},
-        "class_weights": {None, list},
+        "class_weight": {None, list},
         "gamma": {None, float},
         "focal_loss": {bool},
         "tune_embeding_layer": {bool},
@@ -116,7 +116,7 @@ class Classifier:
         tune_embeding_layer=True,  # default to tune embedding 
         tune_attn_only=False, # default to tune all parts of  layers
         ## loss function
-        class_weights=None,
+        class_weight=None,
         gamma=None,
         focal_loss=False,
     ):
@@ -202,7 +202,7 @@ class Classifier:
         self.no_eval = no_eval
         self.forward_batch_size = forward_batch_size
         self.nproc = nproc
-        self.class_weights = class_weights
+        self.class_weight = class_weight
         self.gamma = gamma
         self.focal_loss = focal_loss
         self.tune_embeding_layer = tune_embeding_layer
@@ -962,25 +962,25 @@ class Classifier:
         # create the trainer
         ## add new trainer
         if self.focal_loss:
-            if len(self.class_weight) == 0:
-                from sklearn.utils import class_weight
-                import numpy as np
-                print(" calculating class weights from training data")
-                class_weight_dict = dict(
-                    enumerate(
-                        class_weight.compute_class_weight(
-                            "balanced",
-                            classes=np.unique(train_data["label"]),
-                            y=train_data[
-                                "label"
-                            ],  # TODO: this may not work for genes, need to fix
-                        )
+
+            from sklearn.utils import class_weight
+            import numpy as np
+            print(" calculating class weights from training data")
+            class_weight_dict = dict(
+                enumerate(
+                    class_weight.compute_class_weight(
+                        "balanced",
+                        classes=np.unique(train_data["label"]),
+                        y=train_data[
+                            "label"
+                        ],  # TODO: this may not work for genes, need to fix
                     )
                 )
-                self.class_weight = [0] * len(class_weight_dict)
-                for k, v in self.class_weight_dict.items():
-                    self.class_weight[k] = v
-            print(f"Class weights: {self.class_weight}")
+            )
+            self.sampling_class_weight = [0] * len(class_weight_dict)
+            for k, v in self.class_weight_dict.items():
+                self.sampling_class_weight[k] = v
+            print(f"sampling_class_weight: {self.sampling_class_weight}")
 
             trainer = WeightedLossTrainer(
                 model=model,
@@ -989,7 +989,8 @@ class Classifier:
                 train_dataset=train_data,
                 eval_dataset=eval_data,
                 compute_metrics=cu.compute_metrics,
-                class_weights=self.class_weight,
+                class_weight=self.class_weight,
+                sampling_class_weight = self.sampling_class_weight,
                 gamma=self.gamma,
             )
         else:
