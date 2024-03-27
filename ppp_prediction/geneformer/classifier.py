@@ -978,7 +978,7 @@ class Classifier:
                 )
             )
             self.sampling_class_weight = [0] * len(class_weight_dict)
-            for k, v in self.class_weight_dict.items():
+            for k, v in class_weight_dict.items():
                 self.sampling_class_weight[k] = v
             print(f"sampling_class_weight: {self.sampling_class_weight}")
 
