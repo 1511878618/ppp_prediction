@@ -89,6 +89,7 @@ def getParser():
     parser.add_argument(
         "--tune-embedding-layer", action="store_true", help="tune embedding layer"
     )
+    parser.add_argument("--lr", type=float, default=0.000804, help="learning rate")
     return parser
 
 

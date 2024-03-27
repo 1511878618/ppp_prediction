@@ -962,11 +962,11 @@ class Classifier:
         # create the trainer
         ## add new trainer
         if self.focal_loss:
-            if len(self.class_weights) == 0:
+            if len(self.class_weight) == 0:
                 from sklearn.utils import class_weight
                 import numpy as np
                 print(" calculating class weights from training data")
-                class_weights = dict(
+                class_weight_dict = dict(
                     enumerate(
                         class_weight.compute_class_weight(
                             "balanced",
@@ -977,10 +977,10 @@ class Classifier:
                         )
                     )
                 )
-                self.class_weights = [0]*len(class_weights)
-                for k, v in class_weights.items():
-                    self.class_weights[k] = v
-            print(f"Class weights: {class_weights}")
+                self.class_weight = [0] * len(class_weight_dict)
+                for k, v in self.class_weight_dict.items():
+                    self.class_weight[k] = v
+            print(f"Class weights: {self.class_weight}")
 
             trainer = WeightedLossTrainer(
                 model=model,
@@ -989,7 +989,7 @@ class Classifier:
                 train_dataset=train_data,
                 eval_dataset=eval_data,
                 compute_metrics=cu.compute_metrics,
-                class_weights=self.class_weights,
+                class_weights=self.class_weight,
                 gamma=self.gamma,
             )
         else:
