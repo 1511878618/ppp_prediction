@@ -104,14 +104,12 @@ class FocalLoss(nn.Module):
 
 class WeightedLossTrainer(Trainer):
     def __init__(self, *args, **kwargs):
-        self.class_weight = (
-            kwargs["class_weight"]
-            if len(kwargs["class_weight"]) > 0
-            else kwargs["sampling_class_weight"]
-        )
-        self.sampling_class_weight = kwargs[
-            "sampling_class_weight"
-        ]  # must have, as auto generated
+        self.class_weight = kwargs.pop("class_weight", [])
+        self.sampling_class_weight = kwargs.pop("sampling_class_weight") 
+
+        if len(self.class_weight) == 0:
+            self.class_weight = self.sampling_class_weight
+
         self.gamma = kwargs.pop("gamma", 1.0)
 
         super().__init__(*args, **kwargs)
