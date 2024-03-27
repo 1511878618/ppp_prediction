@@ -144,7 +144,7 @@ if __name__ == "__main__":
         forward_batch_size=args.test_batch_size,
         nproc=16,
         focal_loss=args.focal_loss,
-        class_weight=args.class_weight,
+        class_weight=[float(i) for i in args.class_weight] if len(args.class_weight) > 0 else args.class_weight,
         gamma=args.gamma,
         tune_attn_only=args.tune_attn_only,
         tune_embeding_layer=args.tune_embedding_layer,
