@@ -114,12 +114,13 @@ if __name__ == "__main__":
 
     check_combination_json_file(combination_json, train_file, test_file)
 
-    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+    # Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 
     Regression_model_result_dict = {}
     for key, value in combination_json.items():
         logging.info(f"start to fit model for combination {key}")
         current_save_pkl_path = f"{output_file}/{key}.pkl"
+        Path(output_file).mkdir(parents=True, exist_ok=True)
         if Path(current_save_pkl_path).exists():
             logging.info(
                 f"{key} is fited before at {current_save_pkl_path}, skip this!"
