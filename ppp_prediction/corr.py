@@ -12,14 +12,13 @@ from sklearn.metrics import (
 from scipy.stats import pearsonr, spearmanr
 import statsmodels.api as sm
 from typing import Union, overload, Tuple, List
-from tqdm import tqdm
+from tqdm.rich import tqdm
 import numpy as np
 from confidenceinterval.bootstrap import bootstrap_ci
 import confidenceinterval as ci
 from statsmodels.stats.multitest import multipletests
 
-import pandas as pd
-
+from .utils import HiddenPrints
 import statsmodels.api as sm
 from typing import Union, overload, Tuple, List
 from sklearn.metrics import (
@@ -36,7 +35,6 @@ def generate_multipletests_result(df, pvalue_col='pvalue',alpha=0.05, method='fd
     df['pval_corrected'] = pvals_corrected
     df['reject'] = reject
     return df 
-
 
 
 def find_best_cutoff(fpr, tpr, thresholds):
@@ -211,6 +209,7 @@ def cal_corr(
     return_all=False,
     parallel_cores=None,
     bootstrap_nums=0,
+    verbose=False,
 ) -> pd.DataFrame:
     if isinstance(x, list):
         if parallel_cores is not None and return_all == False:
@@ -236,7 +235,9 @@ def cal_corr(
 
             return pd.concat(res)
         result = []
-        for x_ in tqdm(x):
+        for x_ in tqdm(
+            x, desc="processing", ncols=100, ascii=True, position=0, leave=True
+        ):
             current_res = cal_corr(
                 df,
                 x_,
@@ -247,6 +248,7 @@ def cal_corr(
                 return_all=return_all,
                 bootstrap_nums=bootstrap_nums,
             )
+
             if current_res is not None:
                 result.append(current_res)
 
@@ -374,7 +376,6 @@ def generate_states_cols(res_df, pvalue_col="pvalue"):
     choices = ["*", "**", "***"]
     res_df["markers"] = np.select(conditions, choices, default="")
     return res_df
-
 
 
 def cal_corr_multivar(
