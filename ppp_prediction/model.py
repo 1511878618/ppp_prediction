@@ -1,9 +1,12 @@
 from cuml import LogisticRegression, Lasso, Ridge, ElasticNet
-
+from cuml.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import roc_auc_score, make_scorer
+from tqdm.rich import tqdm
 import numpy as np
-import pandas as pd 
+import pandas as pd
+import seaborn as sns
+from .corr import cal_binary_metrics_bootstrap
 
 def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, verbose=1):
     models_params = {
@@ -12,8 +15,8 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
                 solver="qn", random_state=42, class_weight="balanced"
             ),
             "param_grid": {
-                "C": np.logspace(-4, 4, 5),  # C参数的范围，使用对数间隔
-                "penalty": ["l1", "l2"],  # 正则化类型
+                "C": np.logspace(-4, 4, 10),  # C参数的范围，使用对数间隔
+                "penalty": ["l1"],  # 正则化类型
             },
         },
         "Lasso": {
@@ -25,8 +28,8 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
         "ElasticNet": {
             "model": ElasticNet(),
             "param_grid": {
-                "alpha": np.logspace(-4, 4, 5),
-                "l1_ratio": np.linspace(0, 1, 2),
+                "alpha": np.logspace(-4, 4, 10),
+                "l1_ratio": np.linspace(0, 1, 10),
             },
         },
         # "RandomForest": {
@@ -114,7 +117,202 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
     train_metrics = {
         "train_auc": train_auc,
     }
-    test_metrics = {
-        "test_auc": test_auc,
-    }
+    test_metrics = cal_binary_metrics_bootstrap(
+        y=y_test, y_pred=test_pred, ci_kwargs=dict(n_resamples=200)
+    )
+    test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
+
     return best_model, train_metrics, test_metrics, train_df, test_df, best_mdoels
+
+
+class EnsembleModel(object):
+    def __init__(self, models, coef_name=None, model_name_list=None):
+        self.models = models
+
+        if coef_name is None:
+            if hasattr(self.models[0], "feature_names_in_"):
+                coef_name = self.models[0].coef_name
+            else:
+                raise ValueError("coef_name should be provided")
+        else:
+            coef_name = coef_name
+        self.features = coef_name if coef_name else self.models[0].coef_name
+
+        self.model_name_list = (
+            model_name_list
+            if model_name_list
+            else [f"model_{i}" for i in range(len(self.models))]
+        )
+
+        self.res = self._init_coeffeients_df()
+
+    def _init_coeffeients_df(self):
+
+        res = pd.concat(
+            [
+                pd.DataFrame(
+                    model_each.coef_,
+                    index=self.features,
+                    columns=["coefficients"],
+                ).sort_values("coefficients", ascending=False)
+                for model_each in self.models
+            ],
+            axis=1,
+        )
+        res.columns = [f"model_{i}" for i in range(len(self.model_name_list))]
+        return res
+
+    def _show_models_coeffients(self, axes=None, color="#d67b7f", top=5):
+        """
+        res:
+            model1 model2
+        SOST xx yy
+        BGN xx yy
+
+
+        """
+        if self.res is None:
+            self.res = self._init_coeffeients_df()
+        res = self.res.loc[self.features, :]
+
+        if axes is None:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+        else:
+            assert len(axes) == 2, "axes should be a list of length 2"
+            ax1, ax2 = axes
+
+        percent_of_nonZero_coefficients = (
+            (res != 0).sum(axis=1) * 100 / len(res.columns)
+        )
+        mean_coefficients = res.mean(axis=1)
+        plt_data = pd.DataFrame(
+            [percent_of_nonZero_coefficients, mean_coefficients],
+            index=["percent_of_nonZero_coefficients", "mean_coefficients"],
+        ).T
+        plt_data["abs_mean_coefficients"] = plt_data["mean_coefficients"].abs()
+
+        # ax1
+        sns.scatterplot(
+            x=percent_of_nonZero_coefficients,
+            y=mean_coefficients,
+            size=mean_coefficients,
+            sizes=(20, 400),
+            legend=False,
+            edgecolor="black",
+            ax=ax1,
+            color=color,
+        )
+        ax1.plot([0, 100], [0, 0], "k--", lw=3, color="grey")
+        ax1.set_xlim(-1, 105)
+        ax1.set_xlabel("percent of non-zero coefficients")
+        ax1.set_ylabel("mean nonzero coefficients")
+        sorted_plt_data = (
+            plt_data.sort_values(
+                by=["percent_of_nonZero_coefficients", "abs_mean_coefficients"],
+                ascending=False,
+            )
+            .iloc[:top, :]
+            .index
+        )
+        for i, txt in enumerate(sorted_plt_data):
+            # ax1.annotate(txt, (sorted_plt_data.iloc[i, 0], sorted_plt_data.iloc[i, 1]))
+            ax1.text(
+                plt_data.loc[txt, "percent_of_nonZero_coefficients"],
+                plt_data.loc[txt, "mean_coefficients"],
+                txt,
+                ha="right",
+                fontsize=8,
+                color="black",
+            )
+
+        # ax2
+        absolute_mean_coefficients = mean_coefficients.abs().sort_values(ascending=True)
+        sns.barplot(
+            y=absolute_mean_coefficients,
+            x=absolute_mean_coefficients.index,
+            ax=ax2,
+            color=color,
+        )
+        ax2.set_ylabel("absolute mean coefficients")
+        ax2.set_xlabel("")
+        ax2.set_xticklabels(ax2.get_xticklabels(), rotation=90)
+        if axes is None:
+            fig.tight_layout()
+            return fig
+
+    def predict(self, data):
+        preds = []
+        for model in self.models:
+            if hasattr(model, "predict_proba"):
+                preds.append(model.predict_proba(data)[:, 1])
+            else:
+                preds.append(model.predict(data))
+        return np.mean(preds, axis=0)
+
+    def predict_df(self, data):
+
+        data[f"pred_{self.label}"] = self.predict(data)
+        return data
+
+
+def fit_best_model_bootstrap(
+    train_df,
+    test_df,
+    X_var,
+    y_var,
+    method_list=None,
+    cv=10,
+    verbose=1,
+    n_resample=100,
+    n_jobs=4,
+):
+
+    if n_jobs == 1:
+        random_stats = [i for i in np.random.randint(0, 100000, n_resample)]
+        res = []
+        for i in tqdm(random_stats):
+            train_df_sample = train_df.sample(frac=1, replace=True, random_state=i)
+            best_model, *_ = fit_best_model(
+                train_df_sample, test_df, X_var, y_var, method_list, cv, verbose
+            )
+            res.append(best_model)
+
+    else:
+        from joblib import Parallel, delayed
+
+        print(f"n_jobs: {n_jobs}")
+        # random_stats = [i for i in np.random.randint(0, 100000, n_resample)]
+        random_stats = list(range(n_resample))
+
+        def fit_best_model_modified(*args):
+            best_model, *_ = fit_best_model(*args)
+            return best_model
+
+        res = Parallel(n_jobs=n_jobs)(
+            delayed(fit_best_model_modified)(
+                train_df.sample(frac=1, replace=True, random_state=i),
+                test_df,
+                X_var,
+                y_var,
+                method_list,
+                cv,
+                verbose,
+            )
+            for i in tqdm(random_stats)
+        )
+    model = EnsembleModel(res, coef_name=X_var, model_name_list=None)
+
+    train_df[f"{y_var}_pred"] = model.predict(train_df[X_var].values)
+    test_df[f"{y_var}_pred"] = model.predict(test_df[X_var].values)
+    train_metrics = cal_binary_metrics_bootstrap(
+        y=train_df[y_var].values,
+        y_pred=train_df[f"{y_var}_pred"].values,
+        ci_kwargs=dict(n_resamples=200),
+    )
+    test_metrics = cal_binary_metrics_bootstrap(
+        y=test_df[y_var].values,
+        y_pred=test_df[f"{y_var}_pred"].values,
+        ci_kwargs=dict(n_resamples=200),
+    )
+    test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
+    return model, train_metrics, test_metrics, train_df, test_df

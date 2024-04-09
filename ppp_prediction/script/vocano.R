@@ -10,7 +10,7 @@
 options(repos = c(CRAN = "https://cloud.r-project.org/"))
 
 # 检查并安装必要的包
-packages <- c("optparse", "ggVolcano","ggplot2","export")
+packages <- c("optparse", "ggVolcano","ggplot2","export", "svglite")
 
 for (pkg in packages) {
   if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
@@ -23,6 +23,7 @@ suppressPackageStartupMessages({
   library(ggVolcano)
   library(ggplot2)
 library(export)
+library(svglite)
 
 })
 
@@ -45,7 +46,11 @@ option_list = list(
               help = "FDR cutoff value"),
   make_option(c("--xcutoff"), type = "numeric", default = 0.5,
               help = "this will set to dash line at -0.5 or 0.5 "),
-    make_option(c("--title", type="character", default="Volcano Plot", help="Title of the plot", metavar="title"))
+    make_option(c("--title"), type="character", default="Volcano Plot", help="Title of the plot", metavar="title"),
+  make_option(c("--width"), type = "numeric", default = 10,
+              help = "Width of the output image"),
+  make_option(c("--height"), type = "numeric", default = 10,help = "Height of the output image")
+
 
         
 )
@@ -71,6 +76,8 @@ loc_down <- intersect(which(df[[opt$xcol]] < (-opt$xcutoff)),
 df$regulate[loc_up] <- "Up"
 df$regulate[loc_down] <- "Down"
 
+df[[opt$ycol]][df[[opt$ycol]] == 0] <- .Machine$double.xmin # avoid log2(0) = -Inf
+
 # 绘制火山图并输出
 volcano_plot <- ggvolcano(df, x = opt$xcol, y = opt$ycol, x_lab = opt$xcol, y_lab = opt$ycol,
           label = "var", label_number = 20, output = FALSE, log2FC_cut = opt$xcutoff,
@@ -79,21 +86,17 @@ volcano_plot <- ggvolcano(df, x = opt$xcol, y = opt$ycol, x_lab = opt$xcol, y_la
           # colors = c("#e94234","#b4b4d8","#269846"),
 )
 
-volcano_plot <- volcano_plot + theme(plot.title = element_text(hjust = 0.5, size = 20, face = "bold", color = "red")) + labs(title = opt$title)
+
+volcano_plot <- volcano_plot + theme(plot.title = element_text(hjust = 0.5, size = 20, face = "bold", color = "red")) + labs(title = opt$title) 
 # 根据后缀名保存图形
-file_extension <- tools::file_ext(opt$output)
-if (file_extension == "pptx") {
-    # 如果需要保存为PowerPoint格式，可以使用officer包
-    # 需要先安装officer包: install.packages("officer")  
-    graph2office(  x=volcano_plot,#需要输出的图形  
-    file=opt$output,#输出后图形的名字  
-    type = c("PPT"),#输出图形的格式  
-    width = NULL,#图形在宽度 
-    height = NULL#图形在高度
-    )
 
-} else {
-  # 对于png, svg等，ggsave可以自动处理
-  ggsave(filename = opt$output, plot = volcano_plot, device = file_extension)
+
+out_img <- function(x,filename,pic_width=5,pic_height=7){
+  graph2eps(x=x,file=paste0(filename,".eps"),width=pic_width,height=pic_height)
+  graph2pdf(x=x,file=paste0(filename,".pdf"),width=pic_width,height=pic_height)
+  graph2svg(x=x,file=paste0(filename,".svg"),width=pic_width,height=pic_height)
+  graph2ppt(x=x,file=paste0(filename,".pptx"),width=pic_width,height=pic_height)
+  graph2png(x=x,file=paste0(filename,".png"),width=pic_width,height=pic_height)
+
 }
-
+out_img(volcano_plot,opt$output, pic_width=10, pic_height=10)

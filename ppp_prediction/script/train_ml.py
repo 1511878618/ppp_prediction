@@ -17,7 +17,7 @@ import logging
 import sys
 import json
 import pickle
-from ppp_prediction.model import fit_best_model
+from ppp_prediction.model import fit_best_model, fit_best_model_bootstrap, EnsembleModel
 from ppp_prediction.corr import cal_binary_metrics_bootstrap
 from ppp_prediction.utils import DataFramePretty
 
@@ -58,7 +58,28 @@ def args_parse():
     parser.add_argument(
         "--json", required=True, help="json file for  combination of input"
     )
+    parser.add_argument(
+        "-m",
+        "--method",
+        required=False,
+        default="Lasso",
+        help="method list for fit_best_model, default is ['Lasso', 'ElasticNet', 'Logistic']",
+    )
 
+    parser.add_argument(
+        "-n",
+        "--n-bootstrap",
+        default=1,
+        type=int,
+        help="n bootstrap, if n>1 will use bootstrap to build ensemble model",
+    )
+    parser.add_argument(
+        "-t",
+        "--threads",
+        default=1,
+        type=int,
+        help="threads for bootstrap ,if n=1 this will not work",
+    )
     return parser.parse_args()
 
 
@@ -108,6 +129,9 @@ if __name__ == "__main__":
     test_file = load_df(args.test)
     output_file = args.output
     json_file = args.json
+    n_bootstrap = args.n_bootstrap
+    threads = args.threads
+    method = args.method
 
     combination_json = json.load(open(json_file))
     logging.info(f"combination used is {combination_json.keys()}")
@@ -130,21 +154,41 @@ if __name__ == "__main__":
         features = value["features"]
         label = value["label"]
 
-        (
-            model,
-            train_metrics,
-            test_metrics,
-            train_imputed_data,
-            test_imputed_data,
-            best_models,
-        ) = fit_best_model(
-            train_df=train_file,
-            test_df=test_file,
-            X_var=features,
-            y_var=label,
-            method_list=["Lasso", "ElasticNet", "Logistic"],
-            cv=10,
-        )
+        if n_bootstrap > 1:
+
+            (
+                model,
+                train_metrics,
+                test_metrics,
+                train_imputed_data,
+                test_imputed_data,
+            ) = fit_best_model_bootstrap(
+                train_df=train_file,
+                test_df=test_file,
+                X_var=features,
+                y_var=label,
+                method_list=method,
+                cv=10,
+                n_bootstrap=n_bootstrap,
+                threads=threads,
+            )
+        else:
+
+            (
+                model,
+                train_metrics,
+                test_metrics,
+                train_imputed_data,
+                test_imputed_data,
+                best_models,
+            ) = fit_best_model(
+                train_df=train_file,
+                test_df=test_file,
+                X_var=features,
+                y_var=label,
+                method_list=["Lasso", "ElasticNet", "Logistic"],
+                cv=10,
+            )
         print(
             f"{key} train auc: {train_metrics['train_auc']}, test auc: {test_metrics['test_auc']}"
         )
@@ -157,9 +201,8 @@ if __name__ == "__main__":
             "model": model,
             "train_metrics": train_metrics,
             "test_metrics": test_metrics,
-            "train_data": train_imputed_data,
-            "test_data": test_imputed_data,
-            "best_models": best_models,
+            # "train_data": train_imputed_data,
+            # "test_data": test_imputed_data,
         }
 
         Regression_model_result_dict[key] = test_metrics

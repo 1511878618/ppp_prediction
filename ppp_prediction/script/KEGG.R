@@ -10,7 +10,7 @@
 options(repos = c(CRAN = "https://cloud.r-project.org/"))
 
 # 检查并安装必要的包
-packages <- c("optparse", "BiocManager", "clusterProfiler", "DOSE", "org.Hs.eg.db", "yulab.utils")
+packages <- c("optparse", "BiocManager", "clusterProfiler", "DOSE", "org.Hs.eg.db", "yulab.utils", "ggplot2","export", "svglite")
 
 for (pkg in packages) {
   if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
@@ -27,6 +27,9 @@ suppressPackageStartupMessages({
   library(org.Hs.eg.db)
   library(optparse)
   library(yulab.utils)
+    library(ggplot2)
+library(export)
+library(svglite)
 })
 # 设置命令行选项
 option_list = list(
@@ -37,7 +40,8 @@ option_list = list(
   make_option(c("-o", "--output"), type = "character", default = "kegg.png",
               help = "Path to the output image file", metavar = "OUTPUT"),
   make_option(c("--cn"), action = "store_true", default = FALSE,
-              help = "Translate the Description to Chinese if TRUE")
+              help = "Translate the Description to Chinese if TRUE"),
+  make_option(c("--title"), type="character", default="KEGG Enrichment Plot", help="Title of the plot", metavar="title")
 )
 
 # 解析命令行参数
@@ -75,6 +79,18 @@ if (opt$cn) {
 }
 
 # 绘图并保存
-png(opt$output, width = 10, height = 10, units = "in", res = 300)
-dotplot(kk, showCategory = 10)
-dev.off()
+
+kegg_plot <- dotplot(kk, showCategory = 10) 
+kegg_plot <- kegg_plot + theme(plot.title = element_text(hjust = 0.5, size = 20, face = "bold", color = "red")) + labs(title = opt$title) 
+
+
+
+out_img <- function(x,filename,pic_width=5,pic_height=7){
+  graph2eps(x=x,file=paste0(filename,".eps"),width=pic_width,height=pic_height)
+  graph2pdf(x=x,file=paste0(filename,".pdf"),width=pic_width,height=pic_height)
+  graph2svg(x=x,file=paste0(filename,".svg"),width=pic_width,height=pic_height)
+  graph2ppt(x=x,file=paste0(filename,".pptx"),width=pic_width,height=pic_height)
+  graph2png(x=x,file=paste0(filename,".png"),width=pic_width,height=pic_height)
+
+}
+out_img(kegg_plot,opt$output, pic_width=10, pic_height=10)
