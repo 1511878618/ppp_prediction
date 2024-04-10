@@ -169,8 +169,8 @@ if __name__ == "__main__":
                 y_var=label,
                 method_list=method,
                 cv=10,
-                n_bootstrap=n_bootstrap,
-                threads=threads,
+                n_resample=n_bootstrap,
+                n_jobs=threads,
             )
         else:
 
@@ -186,7 +186,7 @@ if __name__ == "__main__":
                 test_df=test_file,
                 X_var=features,
                 y_var=label,
-                method_list=["Lasso", "ElasticNet", "Logistic"],
+                method_list=method,
                 cv=10,
             )
 
