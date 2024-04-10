@@ -189,9 +189,7 @@ if __name__ == "__main__":
                 method_list=["Lasso", "ElasticNet", "Logistic"],
                 cv=10,
             )
-        print(
-            f"{key} train auc: {train_metrics['train_auc']}, test auc: {test_metrics['test_auc']}"
-        )
+
         test_metrics = cal_binary_metrics_bootstrap(
             test_imputed_data[label],
             test_imputed_data[f"{label}_pred"],
@@ -211,6 +209,9 @@ if __name__ == "__main__":
             DataFramePretty(pd.Series(test_metrics).to_frame()).show()
         except:
             pass
+        print(
+            f"{key} train auc: {train_metrics['train_auc']}, test auc: {test_metrics['test_auc']}"
+        )
         pickle.dump(all_obj, open(current_save_pkl_path, "wb"))
 
     Regression_model_result_df = pd.DataFrame(Regression_model_result_dict).T
