@@ -168,7 +168,7 @@ if __name__ == "__main__":
                 X_var=features,
                 y_var=label,
                 method_list=method,
-                cv=10,
+                cv=3,
                 n_resample=n_bootstrap,
                 n_jobs=threads,
             )
