@@ -80,6 +80,12 @@ def args_parse():
         type=int,
         help="threads for bootstrap ,if n=1 this will not work",
     )
+    parser.add_argument(
+        "--cv",
+        default=3,
+        type=int,
+        help="cv for fit_best_model, default is 3",
+    )
     return parser.parse_args()
 
 
@@ -187,7 +193,7 @@ if __name__ == "__main__":
                 X_var=features,
                 y_var=label,
                 method_list=method,
-                cv=10,
+                cv=args.cv,
             )
 
         test_metrics = cal_binary_metrics_bootstrap(
@@ -209,10 +215,10 @@ if __name__ == "__main__":
             DataFramePretty(pd.Series(test_metrics).to_frame()).show()
         except:
             pass
-        print(
-            f"{key} train auc: {train_metrics['train_auc']}, test auc: {test_metrics['AUC']}"
-        )
+
         pickle.dump(all_obj, open(current_save_pkl_path, "wb"))
+        print(train_metrics)
+        print(test_metrics)
 
     Regression_model_result_df = pd.DataFrame(Regression_model_result_dict).T
     DataFramePretty(Regression_model_result_df).show()
