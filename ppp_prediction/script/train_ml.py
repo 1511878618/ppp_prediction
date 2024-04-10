@@ -210,7 +210,7 @@ if __name__ == "__main__":
         except:
             pass
         print(
-            f"{key} train auc: {train_metrics['train_auc']}, test auc: {test_metrics['auc']}"
+            f"{key} train auc: {train_metrics['train_auc']}, test auc: {test_metrics['AUC']}"
         )
         pickle.dump(all_obj, open(current_save_pkl_path, "wb"))
 
