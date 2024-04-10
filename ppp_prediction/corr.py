@@ -213,31 +213,31 @@ def cal_corr(
 ) -> pd.DataFrame:
     if isinstance(x, list):
         if parallel_cores is not None and return_all == False:
-            from multiprocessing import Pool
-            from functools import partial
+
+            from joblib import Parallel, delayed
 
             x_split = split_list_into_k_chunks(x, k=parallel_cores)
-            df_x_split = [(df[x_ + cofounders + [y]], x_) for x_ in x_split]
+            df_split = [df[x_ + cofounders + [y]] for x_ in x_split]
 
-            parallel_func = partial(
-                parallel_cal_corr,
-                y=y,
-                cofounders=cofounders,
-                model_type=model_type,
-                family=family,
-                bootstrap_nums=bootstrap_nums,
-            )
-
-            with Pool(parallel_cores) as p:
-                res = list(
-                    tqdm(p.imap(parallel_func, df_x_split), total=len(df_x_split))
+            res = Parallel(n_jobs=parallel_cores)(
+                delayed(cal_corr)(
+                    df_current,
+                    x_current,
+                    y,
+                    cofounders,
+                    model_type,
+                    family,
+                    return_all,
+                    None,
+                    0,
+                    False,
                 )
-
+                for df_current, x_current in zip(df_split, x_split)
+            )
             return pd.concat(res)
+
         result = []
-        for x_ in tqdm(
-            x, desc="processing", ncols=100, ascii=True, position=0, leave=True
-        ):
+        for x_ in tqdm(x, desc="processing", total=len(x)):
             current_res = cal_corr(
                 df,
                 x_,
@@ -272,12 +272,12 @@ def cal_corr(
         "ols",
         "logit",
     ], "model should be one of ['glm', 'ols', 'logit']"
-    print(f"passed data have {df.shape[0]} rows")
+    print(f"passed data have {df.shape[0]} rows") if verbose else None
     used_df = df[[x, y] + cofounders].dropna()
 
     X = sm.add_constant(used_df[[x] + cofounders])
     Y = used_df[y]
-    print(f"used data have {used_df.shape[0]} rows after dropna")
+    print(f"used data have {used_df.shape[0]} rows after dropna") if verbose else None
     if model_type == "glm":
         model = sm.GLM(Y, X, family=family).fit()
         y_pred = model.predict(X)
@@ -348,6 +348,7 @@ def cal_corr(
     used_df[f"{y}_pred"] = y_pred
 
     result = pd.Series(result)
+
     if return_all:
         return model, result, used_df
     return result

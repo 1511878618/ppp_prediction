@@ -66,6 +66,9 @@ def args_parse():
     # parser.add_argument("--label", required=False, help="input label file")
     # parser.add_argument("--cofounder", required=False, help="input cofounder file")
     parser.add_argument("--out", required=False, help="output file")
+    parser.add_argument(
+        "-t", "--threads", required=False, default=1, help="threads to use", type=int
+    )
 
     return parser.parse_args()
 
@@ -153,7 +156,12 @@ if __name__ == "__main__":
         logging.info(f"start to calculate {label}")
 
         single_association_proteins_result_df = cal_corr(
-            whole_file, features, y=label, cofounders=cofounder, model_type="logit"
+            whole_file,
+            features,
+            y=label,
+            cofounders=cofounder,
+            model_type="logit",
+            parallel_cores=args.threads,
         )
 
         single_association_proteins_result_df.to_csv(current_output_dir, index=False)
