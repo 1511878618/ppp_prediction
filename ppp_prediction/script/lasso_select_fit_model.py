@@ -170,7 +170,7 @@ if __name__ == "__main__":
             save_dir="./debug",
             name="debug",
         )
-
+        sys.exit(0)
 
     else:
         train_file = load_df(args.train)

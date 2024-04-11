@@ -186,7 +186,7 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
         "Lasso": {
             "model": Lasso(),
             "param_grid": {
-                "alpha": np.logspace(-4, 4, 10),
+                "alpha": np.logspace(-6, 2, 10),
             },
         },
         "ElasticNet": {
