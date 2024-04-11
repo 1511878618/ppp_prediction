@@ -5,6 +5,15 @@
 @Date     :2024/04/06 15:59:28
 @Author      :Tingfeng Xu
 @version      :1.0
+
+
+# step1 bootstrap training to get the dist of weights 
+
+# step2 Sensitivity analysis with different threshold by mean weights 
+
+# step3 use the best cutoff to get the final proteins 
+
+
 """
 
 from multiprocessing import Pool
@@ -17,7 +26,7 @@ import logging
 import sys
 import json
 import pickle
-from ppp_prediction.model import fit_best_model, fit_best_model_bootstrap, EnsembleModel
+from ppp_prediction.model import fit_best_model, fit_best_model_bootstrap, EnsembleModel, lasso_select_model
 from ppp_prediction.corr import cal_binary_metrics_bootstrap
 from ppp_prediction.utils import DataFramePretty
 
@@ -52,20 +61,12 @@ def args_parse():
             """
         ),
     )
-    parser.add_argument("--train", required=True, help="input train file")
+    parser.add_argument("--train", required=False, help="input train file")
     parser.add_argument("--test", required=False, help="input test file")
-    parser.add_argument("--output", required=True, help="output file")
+    parser.add_argument("--output", required=False, help="output file")
     parser.add_argument(
-        "--json", required=True, help="json file for  combination of input"
+        "--json", required=False, help="json file for  combination of input"
     )
-    parser.add_argument(
-        "-m",
-        "--method",
-        required=False,
-        default="Lasso",
-        help="method list for fit_best_model, default is ['Lasso', 'ElasticNet', 'Logistic']",
-    )
-
     parser.add_argument(
         "-n",
         "--n-bootstrap",
@@ -85,6 +86,12 @@ def args_parse():
         default=3,
         type=int,
         help="cv for fit_best_model, default is 3",
+    )
+    parser.add_argument(
+        "--debug",
+        default=False,
+        # type=bool,
+        action="store_true",
     )
     return parser.parse_args()
 
@@ -126,18 +133,48 @@ def load_df(file):
             return pd.read_csv(file)
         except:
             raise ValueError(f"file {file} not supported")
-
+    
+    
 
 if __name__ == "__main__":
     args = args_parse()
 
-    train_file = load_df(args.train)
-    test_file = load_df(args.test)
+
     output_file = args.output
     json_file = args.json
     n_bootstrap = args.n_bootstrap
     threads = args.threads
-    method = args.method
+
+    if args.debug:
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_breast_cancer
+
+        breast_cancer = load_breast_cancer(as_frame=True)
+        X = breast_cancer.data
+        y = breast_cancer.target.astype(float)
+        df = pd.concat([X, y], axis=1)
+
+        train_file, test_file = train_test_split(df, test_size=0.2, random_state=42)
+
+        features = df.columns[:-1].tolist()
+        target = df.columns[-1]
+        print(f"debug open, use breast_cancer data to debug lasso_select_model, will save to ./debug")
+        lasso_select_model(
+            train_df=train_file,
+            test_df=test_file,
+            features=features,
+            label=target,
+            cv=2,
+            threads=1,
+            n_bootstrap=4,
+            save_dir="./debug",
+            name="debug",
+        )
+
+
+    else:
+        train_file = load_df(args.train)
+        test_file = load_df(args.test)
 
     combination_json = json.load(open(json_file))
     logging.info(f"combination used is {combination_json.keys()}")
@@ -149,81 +186,17 @@ if __name__ == "__main__":
     Regression_model_result_dict = {}
     for key, value in combination_json.items():
         logging.info(f"start to fit model for combination {key}")
-        current_save_pkl_path = f"{output_file}/{key}.pkl"
-        Path(output_file).mkdir(parents=True, exist_ok=True)
-        if Path(current_save_pkl_path).exists():
-            logging.info(
-                f"{key} is fited before at {current_save_pkl_path}, skip this!"
-            )
-            continue
-
-        features = value["features"]
-        label = value["label"]
-
-        if n_bootstrap > 1:
-
-            (
-                model,
-                train_metrics,
-                test_metrics,
-                train_imputed_data,
-                test_imputed_data,
-            ) = fit_best_model_bootstrap(
-                train_df=train_file,
-                test_df=test_file,
-                X_var=features,
-                y_var=label,
-                method_list=method,
-                cv=args.cv,
-                n_resample=n_bootstrap,
-                n_jobs=threads,
-            )
-        else:
-
-            (
-                model,
-                train_metrics,
-                test_metrics,
-                train_imputed_data,
-                test_imputed_data,
-                best_models,
-            ) = fit_best_model(
-                train_df=train_file,
-                test_df=test_file,
-                X_var=features,
-                y_var=label,
-                method_list=method,
-                cv=args.cv,
-            )
-            # plot data 
-            
-
-        test_metrics = cal_binary_metrics_bootstrap(
-            test_imputed_data[label],
-            test_imputed_data[f"{label}_pred"],
-            ci_kwargs=dict(n_resamples=1000),
+        current_save_path = f"{output_file}/{key}"
+        lasso_select_model(
+            train_df=train_file,
+            test_df=test_file,
+            features=value["features"],
+            label=value["label"],
+            cv=args.cv,
+            threads=threads,
+            n_bootstrap=n_bootstrap,
+            save_dir=current_save_path,
+            name=key,
         )
-        all_obj = {
-            "model": model,
-            "train_metrics": train_metrics,
-            "test_metrics": test_metrics,
-            # "train_data": train_imputed_data,
-            # "test_data": test_imputed_data,
-        }
 
-        Regression_model_result_dict[key] = test_metrics
 
-        try:
-            DataFramePretty(pd.Series(test_metrics).to_frame()).show()
-        except:
-            pass
-
-        pickle.dump(all_obj, open(current_save_pkl_path, "wb"))
-        print(train_metrics)
-        print(test_metrics)
-
-    Regression_model_result_df = pd.DataFrame(Regression_model_result_dict).T
-    DataFramePretty(Regression_model_result_df).show()
-    Regression_model_result_df.to_csv(
-        f"{output_file}/Regression_model_result_df.tsv", sep="\t"
-    )

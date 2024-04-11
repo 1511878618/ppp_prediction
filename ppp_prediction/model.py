@@ -6,7 +6,171 @@ from tqdm.rich import tqdm
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from .corr import cal_binary_metrics_bootstrap
+from ppp_prediction.corr import cal_binary_metrics_bootstrap
+import matplotlib.pyplot as plt
+from sklearn.pipeline import make_pipeline, Pipeline
+from sklearn.preprocessing import StandardScaler
+from pathlib import Path
+from ppp_prediction.utils import DataFramePretty
+import pickle
+
+
+def lasso_select_model(
+    train_df,
+    test_df,
+    features,
+    label,
+    n_bootstrap=500,
+    threads=4,
+    cv=10,
+    bins=9,
+    save_dir="./output",
+    name="select",
+):
+    current_save_path = save_dir
+    key = name
+    train_file = train_df
+    test_file = test_df
+    method = "Lasso"
+
+    Path(current_save_path).mkdir(parents=True, exist_ok=True)
+    current_save_pkl_path = f"{save_dir}/{key}.pkl"
+
+    Path(current_save_pkl_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # step1 bootstrap training
+    (
+        model,
+        train_metrics,
+        test_metrics,
+        train_imputed_data,
+        test_imputed_data,
+    ) = fit_best_model_bootstrap(
+        train_df=train_file,
+        test_df=test_file,
+        X_var=features,
+        y_var=label,
+        method_list=method,
+        cv=cv,
+        n_resample=n_bootstrap,
+        n_jobs=threads,
+    )
+
+    test_metrics = cal_binary_metrics_bootstrap(
+        test_imputed_data[label],
+        test_imputed_data[f"{label}_pred"],
+        ci_kwargs=dict(n_resamples=1000),
+    )
+    all_obj = {
+        "model": model,
+        "train_metrics": train_metrics,
+        "test_metrics": test_metrics,
+    }
+
+    try:
+        DataFramePretty(pd.Series(test_metrics).to_frame()).show()
+    except:
+        pass
+
+    pickle.dump(all_obj, open(f"{current_save_pkl_path}", "wb"))
+
+    # step2 Sensitivity analysis
+    ## plot
+    try:
+        model._plot._plot_top_k_features()
+        plt.savefig(f"{current_save_path}/top_k_features.png", dpi=400)
+        plt.clf()
+        model._show_models_coeffients()
+        plt.savefig(f"{current_save_path}/coeffients.png", dpi=400)
+        plt.clf()
+    except:
+        pass
+    try:
+        import seaborn as sns
+
+        sns.kdeplot(
+            model.weights_dist_df["percent_of_nonZero_coefficients"],
+            shade=True,
+            color="r",
+        )
+        plt.savefig(f"{current_save_path}/percent_of_nonZero_coefficients.png", dpi=400)
+        plt.clf()
+    except:
+        pass
+    ## fit model and get the best cutoff
+    cutoff_bins = list(
+        range(10, 100, 10)
+    )  # 9个区间：>10, >20, >30, >40, >50, >60, >70, >80, >90
+    cutoff_models = {}
+
+    cuttoff_model_savedir = f"{current_save_path}/cutoff_models"
+    Path(cuttoff_model_savedir).mkdir(parents=True, exist_ok=True)
+
+    for cutoff in cutoff_bins:
+        cutoff_features = model.weights_dist_df[
+            model.weights_dist_df["percent_of_nonZero_coefficients"] > cutoff
+        ].index.tolist()
+        print(f"cutoff: {cutoff}, features num: {len(cutoff_features)}")
+        (
+            cutoff_model,
+            cutoff_model_train_metrics,
+            cutoff_model_test_metrics,
+            cutoff_train_imputed_data,
+            cutoff_test_imputed_data,
+            _,
+        ) = fit_best_model(
+            train_df=train_file,
+            test_df=test_file,
+            X_var=cutoff_features,
+            y_var=label,
+            method_list=method,
+            cv=cv,
+        )
+        cutoff_model_test_metrics["cutoff"] = cutoff
+        cutoff_models[cutoff] = {
+            "model": cutoff_model,
+            "test_metrics": cutoff_model_test_metrics,
+        }
+
+        pickle.dump(
+            cutoff_model, open(f"{cuttoff_model_savedir}/cutoff_{cutoff}.pkl", "wb")
+        )
+
+    # step3 use the best cutoff to get the final proteins
+    cutoff_model_test_metrics_list = [i["test_metrics"] for i in cutoff_models.values()]
+    cutoff_model_test_metrics_df = pd.DataFrame(cutoff_model_test_metrics_list)
+    ## plot
+    try:
+        fig, ax = plt.subplots()
+        ax.errorbar(
+            x=cutoff_model_test_metrics_df["cutoff"],
+            y=cutoff_model_test_metrics_df["AUC"],
+            yerr=[
+                cutoff_model_test_metrics_df["AUC"]
+                - cutoff_model_test_metrics_df["AUC_LCI"],
+                cutoff_model_test_metrics_df["AUC_UCI"]
+                - cutoff_model_test_metrics_df["AUC"],
+            ],
+            fmt="o",
+            marker="o",
+            mfc="black",
+            color="black",
+            capsize=4,
+            label="AUC of cutoff model",
+        )
+        ax.set_xlabel("cutoff")
+        ax.set_ylabel("AUC")
+        plt.savefig(f"{current_save_path}/cutoff_AUC.png", dpi=400)
+    except:
+        pass
+
+    ## get the best cutoff
+    best_cutoff = cutoff_model_test_metrics_df.sort_values("AUC", ascending=False).iloc[
+        0
+    ]["cutoff"]
+    print(f"best cutoff is {best_cutoff}")
+    print(f"{cuttoff_model_savedir}/cutoff_{best_cutoff}.pkl")
+
 
 def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, verbose=1):
     models_params = {
@@ -71,9 +235,15 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
             scorer = make_scorer(roc_auc_score, needs_proba=True)
         else:
             scorer = make_scorer(roc_auc_score)
-
+        rf = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("model", mp["model"]),
+            ]
+        )
+        params_dict = {f"model__{k}": v for k, v in mp["param_grid"].items()}
         grid_search = GridSearchCV(
-            mp["model"], mp["param_grid"], scoring=scorer, cv=cv, verbose=verbose
+            rf, params_dict, scoring=scorer, cv=cv, verbose=verbose
         )
         grid_search.fit(X_train.values, y_train.values)
 
@@ -120,7 +290,7 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
     test_metrics = cal_binary_metrics_bootstrap(
         y=y_test, y_pred=test_pred, ci_kwargs=dict(n_resamples=200)
     )
-    test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
+    # test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
 
     return best_model, train_metrics, test_metrics, train_df, test_df, best_mdoels
 
@@ -136,7 +306,7 @@ class EnsembleModel(object):
                 raise ValueError("coef_name should be provided")
         else:
             coef_name = coef_name
-        self.features = coef_name if coef_name else self.models[0].coef_name
+        self.features = coef_name if coef_name else self.models["model"].coef_name
 
         self.model_name_list = (
             model_name_list
@@ -145,13 +315,18 @@ class EnsembleModel(object):
         )
 
         self.res = self._init_coeffeients_df()
+        self._init_weights_dist()
 
     def _init_coeffeients_df(self):
 
         res = pd.concat(
             [
                 pd.DataFrame(
-                    model_each.coef_,
+                    (
+                        model_each.coef_
+                        if hasattr(model_each, "coef_")
+                        else model_each["model"].coef_
+                    ),
                     index=self.features,
                     columns=["coefficients"],
                 ).sort_values("coefficients", ascending=False)
@@ -161,6 +336,58 @@ class EnsembleModel(object):
         )
         res.columns = [f"model_{i}" for i in range(len(self.model_name_list))]
         return res
+
+    def _init_weights_dist(self):
+        if self.res is None:
+            self.res = self._init_coeffeients_df()
+        res = self.res.loc[self.features, :]
+
+        percent_of_nonZero_coefficients = (
+            (res != 0).sum(axis=1) * 100 / len(res.columns)
+        )
+        mean_coefficients = res.mean(axis=1)
+        weights_dist_df = pd.DataFrame(
+            [percent_of_nonZero_coefficients, mean_coefficients],
+            index=["percent_of_nonZero_coefficients", "mean_coefficients"],
+        ).T
+        weights_dist_df["abs_mean_coefficients"] = weights_dist_df[
+            "mean_coefficients"
+        ].abs()
+        self.weights_dist_df = weights_dist_df
+
+    def _plot_top_k_features(self, k=10, pallete="viridis", ax=None):
+        """
+        plot top k features
+        """
+        if not hasattr(self, "weights_dist_df"):
+            self._init_weights_dist()
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(5, k))
+
+        top_k_features = self.weights_dist_df.sort_values(
+            by=["mean_coefficients"],
+            ascending=False,
+        )
+        plt_data = self.res.loc[
+            [*top_k_features.index[:k], *top_k_features.index[-k:]], :
+        ]
+        plt_data = plt_data.reset_index(drop=False).melt(id_vars="index")
+
+        sns.boxplot(
+            data=plt_data,
+            y="index",
+            x="value",
+            showfliers=False,
+            ax=ax,
+            palette=pallete,
+        )
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=90, fontsize=10)
+        ax.set_xticks([0])
+        ax.grid(axis="x", linestyle="--", alpha=1, linewidth=2, color="red")
+        ax.set_xlabel("Mean of Coefficients")
+        ax.set_ylabel("Features")
+        ax.set_title(f"Top {k} Features")
+        return ax
 
     def _show_models_coeffients(self, axes=None, color="#d67b7f", top=5):
         """
@@ -235,10 +462,14 @@ class EnsembleModel(object):
         )
         ax2.set_ylabel("absolute mean coefficients")
         ax2.set_xlabel("")
-        ax2.set_xticklabels(ax2.get_xticklabels(), rotation=90)
+        xticks = ax2.get_xticklabels()
+        if len(xticks) > 100:
+            ax2.set_xticks([""] * len(xticks))
+        else:
+            ax2.set_xticklabels(ax2.get_xticklabels(), rotation=90)
         if axes is None:
-            fig.tight_layout()
-            return fig
+            # fig.tight_layout()
+            return ax1, ax2
 
     def predict(self, data):
         preds = []
@@ -300,6 +531,7 @@ def fit_best_model_bootstrap(
             )
             for i in tqdm(random_stats)
         )
+
     model = EnsembleModel(res, coef_name=X_var, model_name_list=None)
 
     train_df[f"{y_var}_pred"] = model.predict(train_df[X_var].values)
