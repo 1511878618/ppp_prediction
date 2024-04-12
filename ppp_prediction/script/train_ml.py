@@ -69,7 +69,7 @@ def args_parse():
 
     parser.add_argument(
         "--cv",
-        default=3,
+        default=5,
         type=int,
         help="cv for fit_best_model, default is 3",
     )
@@ -122,8 +122,6 @@ if __name__ == "__main__":
     test_file = load_df(args.test)
     output_file = args.output
     json_file = args.json
-    n_bootstrap = args.n_bootstrap
-    threads = args.threads
     method = args.method
 
     combination_json = json.load(open(json_file))
