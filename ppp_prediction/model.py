@@ -477,6 +477,12 @@ class EnsembleModel(object):
 
     def predict(self, data):
         preds = []
+
+        # check all feature in data 
+        data = data.loc[:, self.features].copy()
+
+        
+
         for model in self.models:
             if hasattr(model, "predict_proba"):
                 preds.append(model.predict_proba(data)[:, 1])

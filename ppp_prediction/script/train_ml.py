@@ -66,20 +66,7 @@ def args_parse():
         help="method list for fit_best_model, default is ['Lasso', 'ElasticNet', 'Logistic']",
     )
 
-    parser.add_argument(
-        "-n",
-        "--n-bootstrap",
-        default=1,
-        type=int,
-        help="n bootstrap, if n>1 will use bootstrap to build ensemble model",
-    )
-    parser.add_argument(
-        "-t",
-        "--threads",
-        default=1,
-        type=int,
-        help="threads for bootstrap ,if n=1 this will not work",
-    )
+
     parser.add_argument(
         "--cv",
         default=3,
@@ -160,43 +147,24 @@ if __name__ == "__main__":
         features = value["features"]
         label = value["label"]
 
-        if n_bootstrap > 1:
 
-            (
-                model,
-                train_metrics,
-                test_metrics,
-                train_imputed_data,
-                test_imputed_data,
-            ) = fit_best_model_bootstrap(
-                train_df=train_file,
-                test_df=test_file,
-                X_var=features,
-                y_var=label,
-                method_list=method,
-                cv=args.cv,
-                n_resample=n_bootstrap,
-                n_jobs=threads,
-            )
-        else:
-
-            (
-                model,
-                train_metrics,
-                test_metrics,
-                train_imputed_data,
-                test_imputed_data,
-                best_models,
-            ) = fit_best_model(
-                train_df=train_file,
-                test_df=test_file,
-                X_var=features,
-                y_var=label,
-                method_list=method,
-                cv=args.cv,
-            )
-            # plot data 
-            
+        (
+            model,
+            train_metrics,
+            test_metrics,
+            train_imputed_data,
+            test_imputed_data,
+            best_models,
+        ) = fit_best_model(
+            train_df=train_file,
+            test_df=test_file,
+            X_var=features,
+            y_var=label,
+            method_list=method,
+            cv=args.cv,
+        )
+        # plot data 
+        
 
         test_metrics = cal_binary_metrics_bootstrap(
             test_imputed_data[label],
