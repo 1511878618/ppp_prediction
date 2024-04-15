@@ -83,7 +83,7 @@ def args_parse():
     )
     parser.add_argument(
         "--cv",
-        default=3,
+        default=5,
         type=int,
         help="cv for fit_best_model, default is 3",
     )

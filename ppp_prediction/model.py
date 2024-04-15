@@ -22,8 +22,8 @@ def lasso_select_model(
     label,
     n_bootstrap=500,
     threads=4,
-    cv=10,
-    bins=9,
+    cv=5,
+    # bins=9,
     save_dir="./output",
     name="select",
 ):
