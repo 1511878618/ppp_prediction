@@ -293,8 +293,10 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
     # test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
     try:
         
-        best_model['model'].feature_names_in_ = X_var # add feature names to model
-    except: 
+        best_model.feature_names_in_ = X_var # add feature names to model
+
+    except:
+        print("can't assign feature names to model") 
         pass 
     
     return best_model, train_metrics, test_metrics, train_df, test_df, best_mdoels
