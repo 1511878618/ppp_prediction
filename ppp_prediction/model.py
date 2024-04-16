@@ -547,8 +547,8 @@ def fit_best_model_bootstrap(
 
     model = EnsembleModel(res, coef_name=X_var, model_name_list=None)
 
-    train_df[f"{y_var}_pred"] = model.predict(train_df[X_var].values)
-    test_df[f"{y_var}_pred"] = model.predict(test_df[X_var].values)
+    train_df[f"{y_var}_pred"] = model.predict(train_df[X_var])
+    test_df[f"{y_var}_pred"] = model.predict(test_df[X_var])
     train_metrics = cal_binary_metrics_bootstrap(
         y=train_df[y_var].values,
         y_pred=train_df[f"{y_var}_pred"].values,
