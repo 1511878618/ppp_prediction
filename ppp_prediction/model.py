@@ -125,6 +125,7 @@ def lasso_select_model(
             y_var=label,
             method_list=method,
             cv=cv,
+            save_dir = f"{cuttoff_model_savedir}/cutoff_{cutoff}.pkl"
         )
         cutoff_model_test_metrics["cutoff"] = cutoff
         cutoff_models[cutoff] = {
@@ -172,7 +173,7 @@ def lasso_select_model(
     print(f"{cuttoff_model_savedir}/cutoff_{best_cutoff}.pkl")
 
 
-def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, verbose=1):
+def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, verbose=1,save_dir=None):
     models_params = {
         "Logistic": {
             "model": LogisticRegression(
@@ -298,7 +299,12 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
     except:
         print("can't assign feature names to model") 
         pass 
-    
+    try:
+        if save_dir:
+            Path(save_dir).parent.mkdir(parents=True, exist_ok=True)
+            pickle.dump(best_model, open(f"{save_dir}", "wb"))
+    except:
+        pass 
     return best_model, train_metrics, test_metrics, train_df, test_df, best_mdoels
 
 
@@ -509,6 +515,7 @@ def fit_best_model_bootstrap(
     verbose=1,
     n_resample=100,
     n_jobs=4,
+    save_dir=None,
 ):
 
     if n_jobs == 1:
@@ -517,7 +524,7 @@ def fit_best_model_bootstrap(
         for i in tqdm(random_stats):
             train_df_sample = train_df.sample(frac=1, replace=True, random_state=i)
             best_model, *_ = fit_best_model(
-                train_df_sample, test_df, X_var, y_var, method_list, cv, verbose
+                train_df_sample, test_df, X_var, y_var, method_list, cv, verbose, save_dir=f"{save_dir}/{i}.pkl" if save_dir else None
             )
             res.append(best_model)
 
@@ -541,6 +548,7 @@ def fit_best_model_bootstrap(
                 method_list,
                 cv,
                 verbose,
+                f"{save_dir}/{i}.pkl" if save_dir else None,
             )
             for i in tqdm(random_stats)
         )
@@ -549,14 +557,17 @@ def fit_best_model_bootstrap(
 
     train_df[f"{y_var}_pred"] = model.predict(train_df[X_var])
     test_df[f"{y_var}_pred"] = model.predict(test_df[X_var])
+
+    to_cal_train = train_df[[y_var, f"{y_var}_pred"]].copy().dropna()
     train_metrics = cal_binary_metrics_bootstrap(
-        y=train_df[y_var].values,
-        y_pred=train_df[f"{y_var}_pred"].values,
+        y=to_cal_train[y_var].values,
+        y_pred=to_cal_train[f"{y_var}_pred"].values,
         ci_kwargs=dict(n_resamples=200),
     )
+    to_cal_test = test_df[[y_var, f"{y_var}_pred"]].copy().dropna()
     test_metrics = cal_binary_metrics_bootstrap(
-        y=test_df[y_var].values,
-        y_pred=test_df[f"{y_var}_pred"].values,
+        y=to_cal_test[y_var].values,
+        y_pred=to_cal_test[f"{y_var}_pred"].values,
         ci_kwargs=dict(n_resamples=200),
     )
     test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
