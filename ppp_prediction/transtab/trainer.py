@@ -6,7 +6,7 @@ import json
 
 import torch
 from torch import nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader,WeightedRandomSampler
 import numpy as np
 import pandas as pd
 # from transformers.optimization import get_scheduler
@@ -41,6 +41,7 @@ class Trainer:
         eval_metric='auc',
         eval_less_is_better=False,
         num_workers=0,
+        sampler = None, # only works for one dataset
         **kwargs,
         ):
         '''args:
@@ -65,7 +66,7 @@ class Trainer:
                 ignore_duplicate_cols=ignore_duplicate_cols,
             )
         self.trainloader_list = [
-            self._build_dataloader(trainset, batch_size, collator=self.collate_fn, num_workers=num_workers) for trainset in train_set_list
+            self._build_dataloader(trainset, batch_size, collator=self.collate_fn, num_workers=num_workers, sampler = sampler) for trainset in train_set_list
         ]
         if test_set_list is not None:
             self.testloader_list = [
@@ -302,14 +303,15 @@ class Trainer:
         )
         return warmup_steps
 
-    def _build_dataloader(self, trainset, batch_size, collator, num_workers=8, shuffle=True):
+    def _build_dataloader(self, trainset, batch_size, collator, num_workers=8, shuffle=True, sampler= None):
         trainloader = DataLoader(
             TrainDataset(trainset),
             collate_fn=collator,
             batch_size=batch_size,
-            shuffle=shuffle,
+            shuffle=shuffle if isinstance(sampler,WeightedRandomSampler) else False,
             num_workers=num_workers,
             pin_memory=True,
             drop_last=False,
+            sampler = sampler 
             )
         return trainloader

@@ -55,10 +55,10 @@ def lasso_select_model(
         n_resample=n_bootstrap,
         n_jobs=threads,
     )
-
+    to_cal_test = test_imputed_data[[label, f"{label}_pred"]].copy().dropna()
     test_metrics = cal_binary_metrics_bootstrap(
-        test_imputed_data[label],
-        test_imputed_data[f"{label}_pred"],
+        to_cal_test[label],
+        to_cal_test[f"{label}_pred"],
         ci_kwargs=dict(n_resamples=1000),
     )
     all_obj = {

@@ -145,18 +145,18 @@ def load_single_data(dataname, dataset_config=None, encode_cat=False, data_cut=N
 
         # update cols by loading dataset_config
         if dataset_config is not None:
-            if 'columns' in dataset_config:
-                new_cols = dataset_config['columns']
-                X.columns = new_cols
+            # if 'columns' in dataset_config:
+            #     new_cols = dataset_config['columns']
+            #     X.columns = new_cols
 
             if 'bin' in dataset_config:
-                bin_cols = dataset_config['bin']
+                bin_cols = [i.lower() for i in dataset_config['bin']]
             
             if 'cat' in dataset_config:
-                cat_cols = dataset_config['cat']
+                cat_cols = [i.lower() for i in dataset_config['cat']]
 
             if 'num' in dataset_config:
-                num_cols = dataset_config['num']
+                num_cols = [i.lower() for i in dataset_config['num']]
         
     else:
         dataset = openml.datasets.get_dataset(dataname)
@@ -191,6 +191,8 @@ def load_single_data(dataname, dataset_config=None, encode_cat=False, data_cut=N
 
     # start processing features
     # process num
+
+
     if len(num_cols) > 0:
         for col in num_cols: X[col].fillna(X[col].mode()[0], inplace=True)
         X[num_cols] = MinMaxScaler().fit_transform(X[num_cols])
