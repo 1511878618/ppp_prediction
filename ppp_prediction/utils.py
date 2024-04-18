@@ -44,3 +44,14 @@ class DataFramePretty(object):
 
         console = Console()
         console.print(table)
+def modelParametersNum(model):
+    totalNum = sum([i.numel() for i in model.parameters()])
+    print(f"模型总参数个数：{totalNum}\t占用的总显存为{totalNum*4/1024/1024:.2f}MB")
+    return totalNum
+
+
+def try_gpu():
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda:0"
+    return device
