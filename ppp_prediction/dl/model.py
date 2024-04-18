@@ -1,14 +1,20 @@
-import os
-from torch import optim, nn, utils, Tensor
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
+
 
 import torch
+
+
+from pytorch_lightning import seed_everything
+
+seed_everything(42)
+
+
+
+from torch import nn
+import os
+
 import pytorch_lightning as pl
 
-import torch.nn as nn
 import torch.optim as optim
-from collections import defaultdict
 
 
 class LinearResBlock(nn.Module):

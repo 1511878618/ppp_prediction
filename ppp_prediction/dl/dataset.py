@@ -11,6 +11,8 @@ from pytorch_lightning import LightningDataModule
 import torch
 import pandas as pd
 import numpy as np
+from torch.nn import functional as F
+
 
 
 class TableDataset(Dataset):
@@ -85,6 +87,7 @@ class TableDatasetModule(LightningDataModule):
         num_classes=2,
         y_type="bt",
         num_workers=4,
+        weighted=True,
     ):
         super().__init__()
 
@@ -95,6 +98,7 @@ class TableDatasetModule(LightningDataModule):
         self.num_classes = num_classes
         self.y_type = y_type
         self.num_workers = num_workers
+        self.weighted = weighted
 
         self._init_dataset(train, test)
 
@@ -156,7 +160,8 @@ class TableDatasetModule(LightningDataModule):
         return DataLoader(
             self.train,
             batch_size=self.batch_size,
-            sampler=sampler,
+            sampler=sampler if self.weighted else None,
+            shuffle=not self.weighted,
             drop_last=True,
             persistent_workers=True,
             num_workers=self.num_workers,

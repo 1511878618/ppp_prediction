@@ -169,15 +169,18 @@ if __name__ == "__main__":
 
     LinearTransformerPL_search_space = {
         "features_dict": {"proteomics": proteomics},
-        "covariates_dict": tune.choice([{"risk_factors": risk_factors}, None]),
+        # "covariates_dict": tune.choice([{"risk_factors": risk_factors}, None]),
+        "covariates_dict": None,
         "d_ff": tune.choice([64, 128, 256, 512]),
         "num_classes": 2,
-        "num_layers": tune.choice([1, 2, 3, 4, 5]),
-        "dropout": tune.uniform(0.1, 0.5),
-        "lr": tune.loguniform(1e-4, 1e-1),
+        "num_layers": tune.choice([1, 2, 4]),
+        "dropout": tune.uniform(0.3, 0.5),
+        "lr": tune.loguniform(1e-4, 1e-3),
         "weight_decay": tune.loguniform(1e-4, 1e-2),
-        "weight": tune.choice([[1, 1], [0.1, 1], [0.1, 10], [0.1, 100]]),
-        "batch_size": tune.choice([64, 256]),
+        "weight": tune.choice([[1, 1], [1, 10], [1, 100]]),
+        # "batch_size": tune.choice([64, 256]),
+        "batch_size": 256,
+        "weighted": tune.choice([True, False]),
     }
 
     ###### ray tune########
@@ -212,6 +215,7 @@ if __name__ == "__main__":
             label=["incident_cad"],
             num_classes=2,
             batch_size=config["batch_size"],
+            weighted= config["weighted"],
         )
 
         model = LinearTransformerPL(**config)
@@ -249,6 +253,8 @@ if __name__ == "__main__":
             checkpoint_score_attribute="ptl/val_auc",
             checkpoint_score_order="max",
         ),
+        storage_path=Path(args.output).absolute().as_uri(), log_to_file=True
+
     )
 
     # Define a TorchTrainer without hyper-parameters for Tuner
@@ -271,6 +277,7 @@ if __name__ == "__main__":
                 num_samples=num_samples,
                 scheduler=scheduler,
             ),
+
         )
         return tuner.fit()
 

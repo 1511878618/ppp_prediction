@@ -9,7 +9,9 @@ import pytorch_lightning as pl
 import torch.nn as nn
 import torch.optim as optim
 from collections import defaultdict
-
+import torchmetrics
+from .model import LinearTransformer
+from torch.utils.data import DataLoader
 
 class LinearTransformerPL(pl.LightningModule):
     def __init__(
@@ -45,6 +47,7 @@ class LinearTransformerPL(pl.LightningModule):
             num_layers=num_layers,
             dropout=dropout,
         )
+        self.features =  self.model.features
 
     def forward(self, x):
 
