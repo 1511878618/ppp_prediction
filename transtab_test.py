@@ -16,8 +16,10 @@
 # model = transtab.build_classifier(cat_cols, num_cols, bin_cols)
 from __future__ import annotations
 
-
-from ppp_prediction.geneformer.tokenizer import TOKEN_DICTIONARY_FILE
+try:
+    from ppp_prediction.geneformer.tokenizer import TOKEN_DICTIONARY_FILE
+except:
+    from geneformer.tokenizer import TOKEN_DICTIONARY_FILE
 
 
 import logging
