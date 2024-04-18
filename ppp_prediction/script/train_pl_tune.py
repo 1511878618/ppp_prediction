@@ -144,6 +144,7 @@ if __name__ == "__main__":
     parallel_trile = int(parallel_trile)
     cpu_nums = int(cpu_nums)
     gpu_nums = float(gpu_nums)
+    Path(args.output).mkdir(parents=True, exist_ok=True)
 
     # The maximum training epochs
     num_epochs = 20
@@ -307,4 +308,3 @@ if __name__ == "__main__":
         pickle.dump(train_metrics, f)
     with open(f"{args.output}/test_metrics.pkl", "wb") as f:
         pickle.dump(test_metrics, f)
-        
