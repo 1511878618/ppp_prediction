@@ -287,5 +287,24 @@ if __name__ == "__main__":
     best_model_state = torch.load(best_result_epoch_dir)
     best_model = LinearTransformerPL(**best_params["train_loop_config"])
     best_model.load_state_dict(best_model_state["state_dict"])
-    best_model
+    
+    ## save score 
+    test_imputed = best_model.predict_df(test_imputed)
+    train_imputed = best_model.predict_df(train_imputed)
 
+    train_imputed[['eid', 'pred']].to_csv(f"{args.output}/train_score.csv", index=False)
+    test_imputed[['eid', 'pred']].to_csv(f"{args.output}/test_score.csv", index=False)  
+    ## cal metrics 
+    from ppp_prediction.corr import cal_binary_metrics_bootstrap
+
+
+    ## 
+    train_metrics = cal_binary_metrics_bootstrap(train_imputed['incident_cad'], train_imputed['pred'], ci_kwargs={"n_resamples":1000})
+    test_metrics = cal_binary_metrics_bootstrap(test_imputed['incident_cad'], test_imputed['pred'], ci_kwargs={"n_resamples":1000})
+
+    import pickle 
+    with open(f"{args.output}/train_metrics.pkl", "wb") as f:
+        pickle.dump(train_metrics, f)
+    with open(f"{args.output}/test_metrics.pkl", "wb") as f:
+        pickle.dump(test_metrics, f)
+        
