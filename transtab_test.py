@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 
-from geneformer.tokenizer import TOKEN_DICTIONARY_FILE
+from ppp_prediction.geneformer.tokenizer import TOKEN_DICTIONARY_FILE
 
 
 import logging
