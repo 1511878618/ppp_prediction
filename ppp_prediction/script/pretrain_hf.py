@@ -87,8 +87,14 @@ if __name__ == "__main__":
     output = args.output
     Path(output).mkdir(parents=True, exist_ok=True)
 
-    train_data = pd.read_pickle(args.train).set_index("eid")
-    test_data = pd.read_pickle(args.test).set_index("eid")
+    train_data = pd.read_pickle(args.train)
+    test_data = pd.read_pickle(args.test)
+
+    if "eid" in train_data.columns:
+        train_data = train_data.set_index("eid")
+    if "eid" in test_data.columns:
+        test_data = test_data.set_index("eid")
+
     feature_cols = train_data.columns.tolist()
 
     precision = args.precision
