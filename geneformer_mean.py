@@ -25,7 +25,7 @@ def expanding_list_to_featuers(examples):
 
 train = datasets.load_from_disk(f"{file_dir}/train")
 
-
+print(train[0]['embeddings'].shape)
 train = train.map(
     lambda x: parse_embedding(x, axis=1), batched=True, batch_size=1024, num_proc=4
 )
