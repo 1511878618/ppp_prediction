@@ -38,6 +38,8 @@ def lasso_select_model(
 
     Path(current_save_pkl_path).parent.mkdir(parents=True, exist_ok=True)
 
+    bootstrap_model_dir = f"{current_save_path}/bootstrap_models"
+    Path(bootstrap_model_dir).mkdir(parents=True, exist_ok=True)
     # step1 bootstrap training
     (
         model,
@@ -54,6 +56,7 @@ def lasso_select_model(
         cv=cv,
         n_resample=n_bootstrap,
         n_jobs=threads,
+        save_dir = bootstrap_model_dir,
     )
     to_cal_test = test_imputed_data[[label, f"{label}_pred"]].copy().dropna()
     test_metrics = cal_binary_metrics_bootstrap(

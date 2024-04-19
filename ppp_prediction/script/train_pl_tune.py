@@ -154,6 +154,30 @@ if __name__ == "__main__":
 
     # params  
     proteomics = test_imputed.columns[test_imputed.columns.tolist().index("C3") :].tolist()  # currently only for DL 
+    
+    important_protein = [
+    "NTproBNP",
+    "MMP12",
+    "REN",
+    "LTBP2",
+    "LGALS4",
+    "LPA",
+    "NRCAM",
+    "CD99",
+    "BCAM",
+    "VWC2",
+    "GCHFR",
+    "SPINT2",
+    "SDC4",
+    "SCN4B",
+    "SERPINA3",
+    "APLP1",
+    "DPY30",
+    "NOTCH3",
+    "DTX3",
+    "CDH3",
+]
+    
     risk_factors = [
     "age",
     "sex",
@@ -166,11 +190,16 @@ if __name__ == "__main__":
     "smoking",
     "prevalent_diabetes",
 ]
+    feature_dict = {
+        "proteomics": proteomics,
+        "important_protein": important_protein,
+        "RS": risk_factors
+    }
 
     LinearTransformerPL_search_space = {
-        "features_dict": {"proteomics": proteomics},
-        # "covariates_dict": tune.choice([{"risk_factors": risk_factors}, None]),
-        "covariates_dict": None,
+        "features": tune.choice(["important_protein", "RS"]),
+        "covariates": tune.choice(["important_protein", "RS", None]),
+        # "covariates": None,
         "d_ff": tune.choice([64, 128, 256, 512]),
         "num_classes": 2,
         "num_layers": tune.choice([1, 2, 4]),
@@ -180,7 +209,8 @@ if __name__ == "__main__":
         "weight": tune.choice([[1, 1], [1, 10], [1, 100]]),
         # "batch_size": tune.choice([64, 256]),
         "batch_size": 256,
-        "weighted": tune.choice([True, False]),
+        # "weighted": tune.choice([True, False]),
+        "weighted": False,
     }
 
     ###### ray tune########
@@ -198,26 +228,23 @@ if __name__ == "__main__":
 
 
     def train_func(config):
-        features_key = list(config["features_dict"].keys())[0]
-        covariates_key = (
-            list(config["covariates_dict"].keys())[0] if config["covariates_dict"] else None
-        )
+        features = feature_dict.get(config["features"], None)
+        covariates = feature_dict.get(config["covariates"], None)
+
+
 
         dataset = TableDatasetModule(
             train=train_imputed,
             test=test_imputed,
-            features=config["features_dict"][features_key],
-            covariates=(
-                config["covariates_dict"][covariates_key]
-                if config["covariates_dict"]
-                else None
-            ),
+            features=features,
+            covariates=covariates,
             label=["incident_cad"],
             num_classes=2,
             batch_size=config["batch_size"],
             weighted= config["weighted"],
         )
-
+        config["features_dict"] = {config["features"]: features}
+        config["covariates_dict"] = {config["covariates"]: covariates} if covariates else None
         model = LinearTransformerPL(**config)
         trainer = Trainer(
             devices="auto",
@@ -283,7 +310,7 @@ if __name__ == "__main__":
 
 
     results = tune_asha(num_samples=num_samples)
-
+    
 
     # results.get_best_result("ptl/val_auc")
 
@@ -295,13 +322,14 @@ if __name__ == "__main__":
     best_model_state = torch.load(best_result_epoch_dir)
     best_model = LinearTransformerPL(**best_params["train_loop_config"])
     best_model.load_state_dict(best_model_state["state_dict"])
-    
+    print(best_params)
     ## save score 
     test_imputed = best_model.predict_df(test_imputed)
     train_imputed = best_model.predict_df(train_imputed)
 
     train_imputed[['eid', 'pred']].to_csv(f"{args.output}/train_score.csv", index=False)
     test_imputed[['eid', 'pred']].to_csv(f"{args.output}/test_score.csv", index=False)  
+    results.get_dataframe().sort_values("ptl/val_auc").to_csv(f"{args.output}/tune_results.csv", index=False)
     ## cal metrics 
     from ppp_prediction.corr import cal_binary_metrics_bootstrap
 
