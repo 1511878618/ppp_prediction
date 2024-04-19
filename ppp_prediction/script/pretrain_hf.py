@@ -93,8 +93,8 @@ if __name__ == "__main__":
     Path(output).mkdir(parents=True, exist_ok=True)
     if Path(args.train).is_file() and Path(args.test).is_file():
 
-        train_dataset_folder = f"{args.train.parent}/train"
-        test_dataset_folder = f"{args.test.parent}/test"
+        train_dataset_folder = f"{Path(args.train).parent}/train"
+        test_dataset_folder = f"{Path(args.test).parent}/test"
         Path(train_dataset_folder).mkdir(parents=True, exist_ok=True)
         Path(test_dataset_folder).mkdir(parents=True, exist_ok=True)
 
