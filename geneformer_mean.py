@@ -1,7 +1,7 @@
 import datasets
 import sys 
 file_dir = sys.argv[1]
-
+batch_size = sys.argv[2]
 import numpy as np
 
 # axis =1, mean pooling for each example; axis = 0, mean pooling for each protein
@@ -27,7 +27,7 @@ train = datasets.load_from_disk(f"{file_dir}/train")
 
 print(np.array(train[0]['embeddings']).shape)
 train = train.map(
-    lambda x: parse_embedding(x, axis=1), batched=True, batch_size=1024, num_proc=4
+    lambda x: parse_embedding(x, axis=1), batched=True, batch_size=batch_size, num_proc=4
 )
 train_df = (
     train.select_columns(["eid", "incident_cad", "mean_embedding"])
@@ -39,7 +39,7 @@ train_df.to_pickle(f"{file_dir}/train_geneformer_features.pkl")
 test = datasets.load_from_disk(f"{file_dir}/test")
 
 test = test.map(
-    lambda x: parse_embedding(x, axis=1), batched=True, batch_size=1024, num_proc=4
+    lambda x: parse_embedding(x, axis=1), batched=True, batch_size=batch_size, num_proc=4
 )
 test_df = (
     test.select_columns(["eid", "incident_cad", "mean_embedding"])
