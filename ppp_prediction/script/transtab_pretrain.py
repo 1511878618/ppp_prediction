@@ -120,7 +120,7 @@ def getParser():
     parser.add_argument("--output", required=True, help="output folder")
     parser.add_argument("--batch_size", type=int, default=32, help="batch size")
     parser.add_argument("--num_epoch", type=int, default=100, help="number of epoch")
-    parser.add_argument("--ckpt", "--checkpoint", default=None, help="checkpoint file of pretrained file")
+    parser.add_argument("--ckpt", default=None, help="checkpoint file of pretrained file")
     parser.add_argument("--weighted", action="store_true", help="weighted loss for transfer learning")
 
     return parser
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     num_cols = total_save_dict["num_cols"]
     bin_cols = total_save_dict["bin_cols"]
 
-    ckpt = args.checkpoint
+    ckpt = args.ckpt
     if ckpt is None:
         pretrain_model, collate_fn = transtab.build_contrastive_learner(
             categorical_columns=cat_cols,
