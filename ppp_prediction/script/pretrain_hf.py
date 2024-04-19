@@ -95,6 +95,14 @@ if __name__ == "__main__":
 
         train_dataset_folder = f"{Path(args.train).parent}/train"
         test_dataset_folder = f"{Path(args.test).parent}/test"
+
+        if Path(train_dataset_folder).exists() and Path(test_dataset_folder).exists():
+            print(f"the train dataset is already saved to {train_dataset_folder}")
+            print(f"the test dataset is already saved to {test_dataset_folder}")
+            print(f"--train {train_dataset_folder} --test {test_dataset_folder} instead for a faster training")
+            import sys 
+            sys.exit(0)
+
         Path(train_dataset_folder).mkdir(parents=True, exist_ok=True)
         Path(test_dataset_folder).mkdir(parents=True, exist_ok=True)
 
