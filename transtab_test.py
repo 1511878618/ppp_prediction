@@ -303,7 +303,7 @@ output_dataset_truncated = proteomics_tokenizer.create_dataset(
 )  # create dataset
 
 output_dataset_truncated = output_dataset_truncated.map(
-    get_embeddings, batched=True, batch_size=128, num_proc=1
+    get_embeddings, batched=True, batch_size=32, num_proc=1
 )
 output_dataset_truncated.save_to_disk(outputpath)  # save to disk
 
@@ -325,6 +325,6 @@ output_dataset_truncated = proteomics_tokenizer.create_dataset(
 )  # create dataset
 
 output_dataset_truncated = output_dataset_truncated.map(
-    get_embeddings, batched=True, batch_size=128, num_proc=1
+    get_embeddings, batched=True, batch_size=32, num_proc=1
 )
 output_dataset_truncated.save_to_disk(outputpath)  # save to disk
