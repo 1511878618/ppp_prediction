@@ -102,10 +102,10 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)    
     max_length = tokenizer.model_max_length if tokenizer.model_max_length <=1e+5 else 2048
 
-    train_dataset = df2dataset(train_data,max_length=max_length)
+    train_dataset = df2dataset(train_data,max_length=max_length, tokenizer=tokenizer)
     print(f"train_dataset: {train_dataset} with input_ids fix length: {len(train_dataset[0]['input_ids'])}")
 
-    test_dataset = df2dataset(test_data, max_length=max_length)
+    test_dataset = df2dataset(test_data, max_length=max_length, tokenizer=tokenizer)
     print(f"test_dataset: {test_dataset} with input_ids fix length: {len(test_dataset[0]['input_ids'])}")
 
 
