@@ -1,7 +1,7 @@
 import datasets
 import sys 
 file_dir = sys.argv[1]
-batch_size = sys.argv[2]
+batch_size = int(sys.argv[2])
 import numpy as np
 
 # axis =1, mean pooling for each example; axis = 0, mean pooling for each protein
