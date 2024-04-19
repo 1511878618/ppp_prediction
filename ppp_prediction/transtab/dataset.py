@@ -127,7 +127,9 @@ def load_single_data(dataname, dataset_config=None, encode_cat=False, data_cut=N
             df = pd.read_csv(filename, index_col=0)
         y = df['target_label']
         X = df.drop(['target_label'],axis=1)
-        all_cols = [col.lower() for col in X.columns.tolist()]
+        # all_cols = [col.lower() for col in X.columns.tolist()]
+        all_cols = [col for col in X.columns.tolist()]
+
 
         X.columns = all_cols
         attribute_names = all_cols
@@ -150,13 +152,13 @@ def load_single_data(dataname, dataset_config=None, encode_cat=False, data_cut=N
             #     X.columns = new_cols
 
             if 'bin' in dataset_config:
-                bin_cols = [i.lower() for i in dataset_config['bin']]
+                bin_cols = [i for i in dataset_config['bin']]
             
             if 'cat' in dataset_config:
-                cat_cols = [i.lower() for i in dataset_config['cat']]
+                cat_cols = [i for i in dataset_config['cat']]
 
             if 'num' in dataset_config:
-                num_cols = [i.lower() for i in dataset_config['num']]
+                num_cols = [i for i in dataset_config['num']]
         
     else:
         dataset = openml.datasets.get_dataset(dataname)

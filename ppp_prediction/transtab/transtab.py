@@ -259,6 +259,7 @@ def build_contrastive_learner(
     device='cuda:0',
     checkpoint=None,
     ignore_duplicate_cols=True,
+    # BertTokenDir = None,
     **kwargs,
     ): 
     '''Build a contrastive learner for pretraining based on TransTab.
@@ -351,6 +352,8 @@ def build_contrastive_learner(
         overlap_ratio=overlap_ratio,
         activation=activation,
         device=device,
+        # BertTokenDir=BertTokenDir
+        # **kwargs,
     )
     if checkpoint is not None:
         model.load(checkpoint)
@@ -362,7 +365,8 @@ def build_contrastive_learner(
         binary_columns=binary_columns,
         overlap_ratio=overlap_ratio,
         num_partition=num_partition,
-        ignore_duplicate_cols=ignore_duplicate_cols
+        ignore_duplicate_cols=ignore_duplicate_cols,
+        # **kwargs,
     )
     if checkpoint is not None:
         collate_fn.feature_extractor.load(os.path.join(checkpoint, constants.EXTRACTOR_STATE_DIR))

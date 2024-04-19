@@ -70,6 +70,7 @@ class TransTabFeatureExtractor:
         binary_columns=None,
         disable_tokenizer_parallel=False,
         ignore_duplicate_cols=False,
+        BertTokenDir=None, # for loading tokenizer
         **kwargs,
         ) -> None:
         '''args:
@@ -81,7 +82,10 @@ class TransTabFeatureExtractor:
         ignore_duplicate_cols: check if exists one col belongs to both cat/num or cat/bin or num/bin,
             if set `true`, the duplicate cols will be deleted, else throws errors.
         '''
-        if os.path.exists('./transtab/tokenizer'):
+        if BertTokenDir is not None:
+            print('load tokenizer from', BertTokenDir)
+            self.tokenizer = BertTokenizerFast.from_pretrained(BertTokenDir)
+        elif os.path.exists('./transtab/tokenizer'):
             self.tokenizer = BertTokenizerFast.from_pretrained('./transtab/tokenizer')
         else:
             self.tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
@@ -288,6 +292,7 @@ class TransTabFeatureProcessor(nn.Module):
             (yes,no); (true,false); (0,1).
         '''
         super().__init__()
+
         self.word_embedding = TransTabWordEmbedding(
             vocab_size=vocab_size,
             hidden_dim=hidden_dim,
