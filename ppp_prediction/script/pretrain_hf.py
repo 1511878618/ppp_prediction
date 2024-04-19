@@ -4,7 +4,7 @@ import argparse
 import textwrap
 from pathlib import Path
 
-
+from multiprocessing import cpu_count
 import numpy as np
 
 from transformers import BertConfig,AutoTokenizer,DataCollatorForLanguageModeling, Trainer, TrainingArguments,BertForMaskedLM
@@ -74,7 +74,7 @@ def df2dataset(df, tokenizer, max_length=2048):
     group_texts,
     batched=True,
     remove_columns=["proteins"],
-    num_proc=8,
+    num_proc=min(cpu_count(), 12)
     )
     return dataset
 
@@ -84,29 +84,46 @@ if __name__ == "__main__":
     parser = getParser()
     args = parser.parse_args()
 
-    output = args.output
-    Path(output).mkdir(parents=True, exist_ok=True)
-
-    train_data = pd.read_pickle(args.train)
-    test_data = pd.read_pickle(args.test)
-
-    if "eid" in train_data.columns:
-        train_data = train_data.set_index("eid")
-    if "eid" in test_data.columns:
-        test_data = test_data.set_index("eid")
-
-    feature_cols = train_data.columns.tolist()
-
     precision = args.precision
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)    
     max_length = tokenizer.model_max_length if tokenizer.model_max_length <=1e+5 else 2048
 
-    train_dataset = df2dataset(train_data,max_length=max_length, tokenizer=tokenizer)
-    print(f"train_dataset: {train_dataset} with input_ids fix length: {len(train_dataset[0]['input_ids'])}")
+    output = args.output
+    Path(output).mkdir(parents=True, exist_ok=True)
+    if Path(args.train).is_file() and Path(args.test).is_file():
 
-    test_dataset = df2dataset(test_data, max_length=max_length, tokenizer=tokenizer)
-    print(f"test_dataset: {test_dataset} with input_ids fix length: {len(test_dataset[0]['input_ids'])}")
+        train_dataset_folder = f"{args.train.parent}/train"
+        test_dataset_folder = f"{args.test.parent}/test"
+        Path(train_dataset_folder).mkdir(parents=True, exist_ok=True)
+        Path(test_dataset_folder).mkdir(parents=True, exist_ok=True)
+
+        print(f"the input dataset is file, read the dataset from {args.train} and {args.test} and save the dataset to disk.")
+
+        train_data = pd.read_pickle(args.train)
+        test_data = pd.read_pickle(args.test)
+
+        if "eid" in train_data.columns:
+            train_data = train_data.set_index("eid")
+        if "eid" in test_data.columns:
+            test_data = test_data.set_index("eid")
+
+        feature_cols = train_data.columns.tolist()
+
+        train_dataset = df2dataset(train_data,max_length=max_length, tokenizer=tokenizer)
+        print(f"train_dataset: {train_dataset} with input_ids fix length: {len(train_dataset[0]['input_ids'])}")
+
+        test_dataset = df2dataset(test_data, max_length=max_length, tokenizer=tokenizer)
+        print(f"test_dataset: {test_dataset} with input_ids fix length: {len(test_dataset[0]['input_ids'])}")
+
+        train_dataset.save_to_disk(f"{train_dataset_folder}")
+        test_dataset.save_to_disk(f"{test_dataset_folder}")
+
+        print(f"the train dataset will be saved to {train_dataset_folder}")
+        print(f"the test dataset will be saved to {test_dataset_folder}")
+    elif Path(args.train).is_dir() and Path(args.test).is_dir():
+        train_dataset = Dataset.load_from_disk(args.train)
+        test_dataset = Dataset.load_from_disk(args.test)
 
 
     bertconfig = BertConfig(
