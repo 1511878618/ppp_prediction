@@ -19,7 +19,7 @@ from .modeling_transtab import TransTabFeatureExtractor
 from .trainer_utils import SupervisedTrainCollator, TrainDataset
 from .trainer_utils import get_parameter_names
 from .trainer_utils import get_scheduler
-
+from tqdm.rich import tqdm
 class Trainer:
     def __init__(self,
         model,
@@ -111,7 +111,7 @@ class Trainer:
             ite = 0
             train_loss_all = 0
             for dataindex in range(len(self.trainloader_list)):
-                for data in self.trainloader_list[dataindex]:
+                for data in tqdm(self.trainloader_list[dataindex]):
                     self.optimizer.zero_grad()
                     logits, loss = self.model(data[0], data[1])
                     loss.backward()
