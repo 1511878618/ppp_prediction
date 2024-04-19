@@ -10,7 +10,7 @@ import numpy as np
 from transformers import BertConfig,AutoTokenizer,DataCollatorForLanguageModeling, Trainer, TrainingArguments,BertForMaskedLM
 from datasets import Dataset
 from collections import defaultdict
-
+from ppp_prediction.utils import modelParametersNum
 
 def getParser():
     parser = argparse.ArgumentParser(
@@ -136,6 +136,9 @@ if __name__ == "__main__":
 )   
     model = BertForMaskedLM(bertconfig)
     print(f"bertconfig: {bertconfig}")
+    print(f"model parameters: {modelParametersNum(model)}")
+
+    print(model)
 
     data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm_probability=0.15
