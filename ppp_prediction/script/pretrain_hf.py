@@ -32,7 +32,7 @@ def getParser():
     # parser.add_argument("--model", required=True, help="model name")
     parser.add_argument("--tokenizer", required=True, help="tokenizer dir") 
     parser.add_argument("--batch-size", type=int, default=32, help="batch size")
-
+    parser.add_argument("--epoch", type=int, default=3, help="epoch")
     parser.add_argument(
         "--precision",
         type=str,
@@ -155,7 +155,7 @@ if __name__ == "__main__":
         output_dir=output,
         evaluation_strategy="epoch",
         learning_rate=2e-5,
-        num_train_epochs=100,
+        num_train_epochs=args.epoch,
         weight_decay=0.01,
         push_to_hub=False,
         bf16= (precision == "bf16"),
