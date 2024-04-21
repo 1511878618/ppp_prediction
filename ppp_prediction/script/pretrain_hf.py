@@ -139,7 +139,7 @@ if __name__ == "__main__":
     hidden_size=256,
     num_attention_heads=8,
     intermediate_size=512,
-    max_position_embeddings=max_length,  # this is the reason that proteomics data have max_length nums proteins
+    max_position_embeddings=tokenizer.vocab_size,  # this is the reason that proteomics data have max_length nums proteins
     num_hidden_layers=6,
 )   
     model = BertForMaskedLM(bertconfig)

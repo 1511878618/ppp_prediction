@@ -16,8 +16,10 @@ from torch.utils.data import DataLoader
 class LinearTransformerPL(pl.LightningModule):
     def __init__(
         self,
-        features_dict,
-        covariates_dict=None,
+        # features_dict,
+        # covariates_dict=None,
+        features,
+        covariates=None,
         d_ff=512,
         num_classes=2,
         num_layers=2,
@@ -40,14 +42,16 @@ class LinearTransformerPL(pl.LightningModule):
         self.history = defaultdict(dict)
         self.loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(weight).float())
         self.model = LinearTransformer(
-            features_dict=features_dict,
-            covariates_dict=covariates_dict,
+            # features_dict=features_dict,
+            # covariates_dict=covariates_dict,
+            features=features,
+            covariates=covariates,
             d_ff=d_ff,
             num_classes=num_classes,
             num_layers=num_layers,
             dropout=dropout,
         )
-        self.features =  self.model.features
+        self.features =  features
 
     def forward(self, x):
 

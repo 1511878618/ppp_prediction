@@ -158,7 +158,7 @@ if __name__ == "__main__":
             test_df=test_file,
             X_var=features,
             y_var=label,
-            method_list=method,
+            method_list=[method],
             cv=args.cv,
         )
         # plot data 

@@ -25,7 +25,7 @@ def lasso_select_model(
     cv=5,
     # bins=9,
     save_dir="./output",
-    name="select",
+    name="EnsembleModel",
 ):
     current_save_path = save_dir
     key = name
@@ -34,7 +34,7 @@ def lasso_select_model(
     method = "Lasso"
 
     Path(current_save_path).mkdir(parents=True, exist_ok=True)
-    current_save_pkl_path = f"{save_dir}/{key}.pkl"
+    current_save_pkl_path = f"{save_dir}/{key}_obj.pkl"
 
     Path(current_save_pkl_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -137,7 +137,7 @@ def lasso_select_model(
         }
 
         pickle.dump(
-            cutoff_model, open(f"{cuttoff_model_savedir}/cutoff_{cutoff}.pkl", "wb")
+            cutoff_model, open(f"{cuttoff_model_savedir}/cutoff_{cutoff}_obj.pkl", "wb")
         )
 
     # step3 use the best cutoff to get the final proteins
@@ -174,6 +174,8 @@ def lasso_select_model(
     ]["cutoff"]
     print(f"best cutoff is {best_cutoff}")
     print(f"{cuttoff_model_savedir}/cutoff_{best_cutoff}.pkl")
+    test_metrics['cutoff'] = "ensemble"
+    pd.concat([cutoff_model_test_metrics_df, pd.DataFrame(test_metrics, index=[0])], axis=0).to_csv(f"{current_save_path}/test_metrics.csv", index=False)
 
 
 def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, verbose=1,save_dir=None):
@@ -249,7 +251,8 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
         grid_search = GridSearchCV(
             rf, params_dict, scoring=scorer, cv=cv, verbose=verbose
         )
-        grid_search.fit(X_train.values, y_train.values)
+        # grid_search.fit(X_train.values, y_train.values)
+        grid_search.fit(X_train, y_train)
 
         best_model = grid_search.best_estimator_
         bset_params = grid_search.best_params_
@@ -295,13 +298,12 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
         y=y_test, y_pred=test_pred, ci_kwargs=dict(n_resamples=200)
     )
     # test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
-    try:
-        
-        best_model.feature_names_in_ = X_var # add feature names to model
+    # try:
+    #     best_model.features = X_var # add feature names to model
 
-    except:
-        print("can't assign feature names to model") 
-        pass 
+    # except:
+    #     print("can't assign feature names to model") 
+    #     pass 
     try:
         if save_dir:
             Path(save_dir).parent.mkdir(parents=True, exist_ok=True)
@@ -493,19 +495,71 @@ class EnsembleModel(object):
         # check all feature in data 
         data = data.loc[:, self.features].copy()
 
-        
-
         for model in self.models:
             if hasattr(model, "predict_proba"):
                 preds.append(model.predict_proba(data)[:, 1])
             else:
                 preds.append(model.predict(data))
-        return np.mean(preds, axis=0)
+        if hasattr(self, "weight_model"):
+            return self.weight_model.predict(np.array(preds).T)
+        else:
+            return np.mean(preds, axis=0)
+    
+    def fit_ensemble_weight(self, train_data, test_data, label="label"):
+        """
+        fit ensemble weight
+        """
 
-    def predict_df(self, data):
+        train_data = (
+            train_data.loc[:, self.features + [label]]
+            .copy()
+            .dropna()
+            .reset_index(drop=True)
+        )
+        test_data = (
+            test_data.loc[:, self.features + [label]].copy().dropna().reset_index(drop=True)
+        )
 
-        data[f"pred_{self.label}"] = self.predict(data)
-        return data
+        train_dict = {}
+        test_dict = {}
+
+        for model_name, model in zip(self.model_name_list, self.models):
+            if hasattr(model, "predict_proba"):
+                train_dict[model_name] = model.predict_proba(train_data[self.features])[
+                    :, 1
+                ]
+                test_dict[model_name] = model.predict_proba(test_data[self.features])[:, 1]
+
+            else:
+                train_dict[model_name] = model.predict(train_data[self.features])
+                test_dict[model_name] = model.predict(test_data[self.features])
+
+        train_df = pd.DataFrame(train_dict)
+        test_df = pd.DataFrame(test_dict)
+        # print(test_data.columns)
+        print(test_df)
+        train_df["label"] = train_data[label]
+        test_df["label"] = test_data[label]
+
+        X_var = self.model_name_list
+        print(f"train shape: {train_df.shape}, test shape is {test_df.shape}")
+
+        weight_model, train_metrics, test_metrics, *_ = fit_best_model(
+            train_df=train_df,
+            test_df=test_df,
+            X_var=X_var,
+            y_var="label",
+            method_list=["Lasso"],
+            cv=5,
+        )
+        # weight_model.features = X_var
+        self.weight_model = weight_model
+        return weight_model, train_metrics, test_metrics
+
+    # def predict_df(self, data):
+
+    #     data[f"pred_{self.label}"] = self.predict(data)
+    #     return data
 
 
 def fit_best_model_bootstrap(

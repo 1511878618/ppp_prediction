@@ -169,8 +169,10 @@ class LinearFeatureFusionBlock(nn.Module):
 class LinearTransformer(nn.Module):
     def __init__(
         self,
-        features_dict,
-        covariates_dict=None,
+        # features_dict,
+        # covariates_dict=None,
+        features,
+        covariates=None
         d_ff=128,
         num_classes=2,
         num_layers=3,
@@ -188,16 +190,19 @@ class LinearTransformer(nn.Module):
         
         """
         super(LinearTransformer, self).__init__()
-        self.features_dict = features_dict
-        self.covariates_dict = covariates_dict if covariates_dict else None
-        self.features_name = list(features_dict.keys())[0]
-        self.covariates_name = (
-            list(covariates_dict.keys())[0] if covariates_dict else None
-        )
-        self.features = features_dict[self.features_name]
-        self.covariates = (
-            covariates_dict[self.covariates_name] if covariates_dict else None
-        )
+        # self.features_dict = features_dict
+        # self.covariates_dict = covariates_dict if covariates_dict else None
+        # self.features_name = list(features_dict.keys())[0]
+        # self.covariates_name = (
+        #     list(covariates_dict.keys())[0] if covariates_dict else None
+        # )
+        # self.features = features_dict[self.features_name]
+        # self.covariates = (
+        #     covariates_dict[self.covariates_name] if covariates_dict else None
+        # )
+        self.features = features
+        self.covariates = covariates if covariates_dict else None
+
 
         self.d_featurs = len(self.features)
         self.d_covariates = len(self.covariates) if covariates_dict else None

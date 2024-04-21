@@ -197,8 +197,8 @@ if __name__ == "__main__":
     }
 
     LinearTransformerPL_search_space = {
-        "features": tune.choice(["important_protein", "RS"]),
-        "covariates": tune.choice(["important_protein", "RS", None]),
+        "features": tune.choice(["important_protein", "proteomics", "RS"]),
+        "covariates": tune.choice(["important_protein","RS", None]),
         # "covariates": None,
         "d_ff": tune.choice([64, 128, 256, 512]),
         "num_classes": 2,
@@ -243,8 +243,8 @@ if __name__ == "__main__":
             batch_size=config["batch_size"],
             weighted= config["weighted"],
         )
-        config["features_dict"] = {config["features"]: features}
-        config["covariates_dict"] = {config["covariates"]: covariates} if covariates else None
+        # config["features_dict"] = {config["features"]: features}
+        # config["covariates_dict"] = {config["covariates"]: covariates} if covariates else None
         model = LinearTransformerPL(**config)
         trainer = Trainer(
             devices="auto",
