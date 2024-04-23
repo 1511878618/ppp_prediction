@@ -106,13 +106,14 @@ def calibration_dot_plot(
     color=None,
     k=10,
     n_resample=1000,
+    offset = 0.2,
 ):
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 5))
     if hue:
         hue_order = hue_order if hue_order is not None else data[hue].unique()
-        offset_list = np.linspace(-0.02, 0.2, len(hue_order))
+        offset_list = np.linspace(-offset, offset, len(hue_order))
         for idx in range(len(hue_order)):
             current_data = data[data[hue] == hue_order[idx]]
             color = (
