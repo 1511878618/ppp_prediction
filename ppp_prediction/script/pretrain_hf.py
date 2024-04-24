@@ -7,7 +7,7 @@ from pathlib import Path
 from multiprocessing import cpu_count
 import numpy as np
 
-from transformers import BertConfig,AutoTokenizer,DataCollatorForLanguageModeling, Trainer, TrainingArguments,BertForMaskedLM
+from transformers import BertConfig,AutoTokenizer,DataCollatorForLanguageModeling, Trainer, TrainingArguments,BertForMaskedLM,AlbertConfig, AlbertForMaskedLM
 from datasets import Dataset
 from collections import defaultdict
 from ppp_prediction.utils import modelParametersNum
@@ -29,10 +29,12 @@ def getParser():
     parser.add_argument("--train", required=True, help="input training dataset file, ")
     parser.add_argument("--test", required=True, help="input testing dataset file")
     parser.add_argument("--output", required=True, help="output folder")
-    # parser.add_argument("--model", required=True, help="model name")
+    parser.add_argument("--model", required=True, help="model name", choices=['bert', 'albert'])
+    # parser.add
     parser.add_argument("--tokenizer", required=True, help="tokenizer dir") 
     parser.add_argument("--batch-size", type=int, default=32, help="batch size")
     parser.add_argument("--epoch", type=int, default=3, help="epoch")
+    parser.add_argument("--max-length", type=int, default=None, help="max length")
     parser.add_argument(
         "--precision",
         type=str,
@@ -87,7 +89,10 @@ if __name__ == "__main__":
     precision = args.precision
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)    
-    max_length = tokenizer.model_max_length if tokenizer.model_max_length <=1e+5 else 2048
+    if args.max_length is not None:
+        max_length = args.max_length
+    else:
+        max_length = tokenizer.model_max_length if tokenizer.model_max_length <=1e+5 else 2048
 
     output = args.output
     Path(output).mkdir(parents=True, exist_ok=True)
@@ -133,17 +138,25 @@ if __name__ == "__main__":
         train_dataset = Dataset.load_from_disk(args.train)
         test_dataset = Dataset.load_from_disk(args.test)
 
-
-    bertconfig = BertConfig(
-    vocab_size=tokenizer.vocab_size,
+    config = dict(vocab_size=tokenizer.vocab_size,
     hidden_size=256,
     num_attention_heads=8,
     intermediate_size=512,
     max_position_embeddings=tokenizer.vocab_size,  # this is the reason that proteomics data have max_length nums proteins
-    num_hidden_layers=6,
-)   
-    model = BertForMaskedLM(bertconfig)
-    print(f"bertconfig: {bertconfig}")
+    num_hidden_layers=6)
+    # TODO: yaml to control config and train args
+
+    if args.model == "bert":
+        config = BertConfig(**config)
+        model = BertForMaskedLM(config)
+    elif args.model == "albert":
+        config = AlbertConfig(**config)
+        model = AlbertForMaskedLM(config)   
+    else:
+        raise ValueError(f"model {args.model} is not supported")
+
+    print(f"used model is {args.model}")
+    print(f"config: {config}")
     print(f"model parameters: {modelParametersNum(model)}")
 
     print(model)
