@@ -28,7 +28,7 @@ from tokenizers import (
     processors,
 )
 from transformers import BertTokenizer, BertTokenizerFast, PreTrainedTokenizerFast
-from ppp_prediction.constants import TOKEN_DICTIONARY_FILE, GENE_NAME_ID_DICTIONARY_FILE
+from ppp_prediction.constants import GeneFormer_TOKEN_DICTIONARY_FILE, GeneFormer_GENE_NAME_ID_DICTIONARY_FILE
 import pickle 
 from collections import OrderedDict
 
