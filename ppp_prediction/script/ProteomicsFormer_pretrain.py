@@ -109,10 +109,10 @@ def df2dataset(df, tokenizer, max_length=2048):
 
 def build_geneformer_tokenizer():
 
-    with open(TOKEN_DICTIONARY_FILE, "rb") as f:
+    with open(GeneFormer_TOKEN_DICTIONARY_FILE, "rb") as f:
         gene_token_dict = pickle.load(f)
 
-    with open(GENE_NAME_ID_DICTIONARY_FILE, "rb") as f:
+    with open(GeneFormer_GENE_NAME_ID_DICTIONARY_FILE, "rb") as f:
         gene_name_id_dict = pickle.load(f)
 
 
