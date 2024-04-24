@@ -84,6 +84,7 @@ def df2dataset(df, tokenizer, max_length=2048):
         res["length"].append(len(ranked_row))
 
     dataset =  Dataset.from_dict(res)
+
     def group_texts(examples):
 
         tokenized_inputs = tokenizer(
@@ -101,6 +102,7 @@ def df2dataset(df, tokenizer, max_length=2048):
     group_texts,
     batched=True,
     remove_columns=["proteins"],
+    batch_size=512,
     num_proc=min(cpu_count(), 12)
     )
     return dataset
@@ -175,7 +177,7 @@ if __name__ == "__main__":
 
     tokenizer = build_geneformer_tokenizer()
     tokenizer.save_pretrained(f"{output}/tokenizer")
-
+    tokenizer = AutoTokenizer.from_pretrained(f"{output}/tokenizer")   
 
     if args.max_length is not None:
         max_length = args.max_length
