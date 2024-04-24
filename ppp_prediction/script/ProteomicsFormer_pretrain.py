@@ -175,20 +175,22 @@ if __name__ == "__main__":
     output = args.output
     Path(output).mkdir(parents=True, exist_ok=True)
 
-    tokenizer = build_geneformer_tokenizer()
-    tokenizer.save_pretrained(f"{output}/tokenizer")
-    tokenizer = AutoTokenizer.from_pretrained(f"{output}/tokenizer")   
 
-    if args.max_length is not None:
-        max_length = args.max_length
-    else:
-        max_length = tokenizer.model_max_length if tokenizer.model_max_length <=1e+5 else 2048
 
     # TODO: Supported for finetune with target
     if Path(args.train).is_file() and Path(args.test).is_file():
 
-        train_dataset_folder = f"{Path(args.train).parent}/train"
-        test_dataset_folder = f"{Path(args.test).parent}/test"
+        tokenizer = build_geneformer_tokenizer()
+        tokenizer.save_pretrained(f"{output}/tokenizer")
+        tokenizer = AutoTokenizer.from_pretrained(f"{output}/tokenizer")   
+
+        if args.max_length is not None:
+            max_length = args.max_length
+        else:
+            max_length = tokenizer.model_max_length if tokenizer.model_max_length <=1e+5 else 2048
+
+        train_dataset_folder = f"{Path(args.train).parent}/train_{max_length}"
+        test_dataset_folder = f"{Path(args.test).parent}/test_{max_length}"
 
         if Path(train_dataset_folder).exists() and Path(test_dataset_folder).exists():
             print(f"the train dataset is already saved to {train_dataset_folder}")
