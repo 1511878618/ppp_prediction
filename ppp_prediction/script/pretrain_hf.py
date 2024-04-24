@@ -30,6 +30,7 @@ def getParser():
     parser.add_argument("--test", required=True, help="input testing dataset file")
     parser.add_argument("--output", required=True, help="output folder")
     parser.add_argument("--model", required=True, help="model name", choices=['bert', 'albert'])
+    parser.add_argument('--resume', help="resume from alread exists ckpt file from output dir", action="store_true")
     # parser.add
     parser.add_argument("--tokenizer", required=True, help="tokenizer dir") 
     parser.add_argument("--batch-size", type=int, default=32, help="batch size")
@@ -175,6 +176,8 @@ if __name__ == "__main__":
         fp16= (precision == "fp16"),
         per_device_train_batch_size = args.batch_size,
         per_device_eval_batch_size = args.batch_size,
+        resume_from_checkpoint=args.resume,
+        save_steps = 3000,
         
     )
 
