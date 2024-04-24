@@ -103,7 +103,7 @@ def df2dataset(df, tokenizer, max_length=2048):
     batched=True,
     remove_columns=["proteins"],
     batch_size=512,
-    num_proc=min(cpu_count(), 12)
+    num_proc=min(cpu_count(), 2)
     )
     return dataset
 
@@ -197,8 +197,6 @@ if __name__ == "__main__":
             import sys 
             sys.exit(0)
 
-        Path(train_dataset_folder).mkdir(parents=True, exist_ok=True)
-        Path(test_dataset_folder).mkdir(parents=True, exist_ok=True)
 
         print(f"the input dataset is file, read the dataset from {args.train} and {args.test} and save the dataset to disk.")
 
@@ -222,13 +220,18 @@ if __name__ == "__main__":
             f"Total {len(not_in_list)} proteins not in geneformer tokens will drop them , part of them are : {not_in_list[:10]}"
         )
 
-
+        test_data.drop(columns=not_in_list, inplace=True)
+        train_data.drop(columns=not_in_list, inplace=True)
+        
 
         train_dataset = df2dataset(train_data,max_length=max_length, tokenizer=tokenizer)
         print(f"train_dataset: {train_dataset} with input_ids fix length: {len(train_dataset[0]['input_ids'])}")
 
         test_dataset = df2dataset(test_data, max_length=max_length, tokenizer=tokenizer)
         print(f"test_dataset: {test_dataset} with input_ids fix length: {len(test_dataset[0]['input_ids'])}")
+
+        Path(train_dataset_folder).mkdir(parents=True, exist_ok=True)
+        Path(test_dataset_folder).mkdir(parents=True, exist_ok=True)
 
         train_dataset.save_to_disk(f"{train_dataset_folder}")
         test_dataset.save_to_disk(f"{test_dataset_folder}")
