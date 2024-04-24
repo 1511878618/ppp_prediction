@@ -28,7 +28,7 @@ from tokenizers import (
     processors,
 )
 from transformers import BertTokenizer, BertTokenizerFast, PreTrainedTokenizerFast
-from ppp_prediction.geneformer.constants import TOKEN_DICTIONARY_FILE, GENE_NAME_ID_DICTIONARY_FILE
+from ppp_prediction.constants import TOKEN_DICTIONARY_FILE, GENE_NAME_ID_DICTIONARY_FILE
 import pickle 
 from collections import OrderedDict
 
@@ -57,6 +57,7 @@ def getParser():
     parser.add_argument("--batch-size", type=int, default=32, help="batch size")
     parser.add_argument("--epoch", type=int, default=3, help="epoch")
     parser.add_argument("--max-length", type=int, default=None, help="max length")
+    # parser.add
     parser.add_argument(
         "--precision",
         type=str,
@@ -181,7 +182,7 @@ if __name__ == "__main__":
     else:
         max_length = tokenizer.model_max_length if tokenizer.model_max_length <=1e+5 else 2048
 
-
+    # TODO: Supported for finetune with target
     if Path(args.train).is_file() and Path(args.test).is_file():
 
         train_dataset_folder = f"{Path(args.train).parent}/train"
