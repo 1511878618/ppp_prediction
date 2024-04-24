@@ -103,7 +103,7 @@ def df2dataset(df, tokenizer, max_length=2048):
     batched=True,
     remove_columns=["proteins"],
     batch_size=512,
-    num_proc=min(cpu_count(), 2)
+    num_proc=min(cpu_count(), 12)
     )
     return dataset
 
