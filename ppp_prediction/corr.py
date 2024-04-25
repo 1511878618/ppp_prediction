@@ -134,6 +134,18 @@ def cal_binary_metrics_bootstrap(y, y_pred, ci_kwargs=None):
         "APR_LCI": APR_CI[0],
     }
 
+def cal_qt_metrics(y_true, y_pred):
+    pearsonr_score = pearsonr(y_true, y_pred)[0]
+    spearmanr_score = spearmanr(y_true, y_pred)[0]
+    explained_variance_score_ = explained_variance_score(y_true, y_pred)
+    r2_score_ = r2_score(y_true, y_pred)
+    return {
+        "pearsonr": pearsonr_score,
+        "spearmanr": spearmanr_score,
+        "explained_variance_score": explained_variance_score_,
+        "r2_score": r2_score_,
+    }
+
 
 def split_list_into_k_chunks(lst, k):
     """

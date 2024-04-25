@@ -178,7 +178,7 @@ def lasso_select_model(
     pd.concat([cutoff_model_test_metrics_df, pd.DataFrame(test_metrics, index=[0])], axis=0).to_csv(f"{current_save_path}/test_metrics.csv", index=False)
 
 
-def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, verbose=1,save_dir=None):
+def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, verbose=1,save_dir=None,y_type="bt"):
     models_params = {
         "Logistic": {
             "model": LogisticRegression(

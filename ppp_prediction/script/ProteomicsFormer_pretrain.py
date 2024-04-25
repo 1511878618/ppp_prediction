@@ -182,7 +182,7 @@ if __name__ == "__main__":
 
         tokenizer = build_geneformer_tokenizer()
         tokenizer.save_pretrained(f"{output}/tokenizer")
-        tokenizer = AutoTokenizer.from_pretrained(f"{output}/tokenizer")   
+
 
         if args.max_length is not None:
             max_length = args.max_length
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     elif Path(args.train).is_dir() and Path(args.test).is_dir():
         train_dataset = Dataset.load_from_disk(args.train)
         test_dataset = Dataset.load_from_disk(args.test)
-
+        tokenizer = AutoTokenizer.from_pretrained(f"{output}/tokenizer")   
 
     model = BertForMaskedLM.from_pretrained(args.ckpt)
 
