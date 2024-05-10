@@ -14,6 +14,107 @@ from pathlib import Path
 from ppp_prediction.utils import DataFramePretty
 import pickle
 
+    
+from sklearn.pipeline import Pipeline
+from typing import Union, List
+from sklearn.utils._metadata_requests import process_routing
+import numpy as np
+
+def log_likelihood(y_true, y_pred, n):
+    """
+    Calculate the log-likelihood of a regression model.
+
+    Parameters:
+    - y_true: array, true target values
+    - y_pred: array, predicted target values by the model
+    - n: int, number of observations
+
+    Returns:
+    - ll: float, the log-likelihood value
+    """
+    residuals = y_true - y_pred
+    residuals_squared_mean = np.mean(residuals**2)
+    ll = -0.5 * n * (1 + np.log(2 * np.pi) + np.log(residuals_squared_mean))
+    return ll
+
+
+def calculate_aic_bic(y_true, y_pred, n, k):
+    """
+    Calculate AIC and BIC for a regression model.
+
+    Parameters:
+    - y_true: array, true target values
+    - y_pred: array, predicted target values by the model
+    - n: int, number of observations
+    - k: int, number of features in the model
+
+    Returns:
+    - A tuple containing:
+      - AIC: float, Akaike Information Criterion
+      - BIC: float, Bayesian Information Criterion
+    """
+    ll = log_likelihood(y_true, y_pred, n)
+    aic = -2 * ll + 2 * k
+    bic = -2 * ll + k * np.log(n)
+    return aic, bic
+def get_predict(
+    pipline: Pipeline,
+    data,
+    x_var: Union[List, str, None] = None,
+    exclude: Union[List, str, None] = None,
+    **params
+):
+    """
+    用以对pipline的计算过程最后一步去除cov的权重
+    
+    """
+    if x_var is not None :
+        feature_names_in_ = x_var
+    elif hasattr(pipline, "feature_names_in_"):
+        feature_names_in_ = pipline.feature_names_in_
+    elif hasattr(last_model, "feature_names_in_"):
+        feature_names_in_ = last_model.feature_names_in_
+    else:
+        feature_names_in_ = data.columns.tolist() 
+
+    data = data[feature_names_in_]
+
+    if x_var is not None or exclude is not None:
+        # currently only supported with scaler + model
+        routed_params = process_routing(pipline, "predict", **params)
+        Xt = data
+        for _, name, transform in pipline._iter(with_final=False):
+            Xt = transform.transform(Xt, **routed_params[name].transform)
+
+        last_model = pipline.steps[-1][1]
+        assert hasattr(last_model, "coef_") and hasattr(
+            last_model, "intercept_"
+        ), "pipline last step must have coef_ and intercept_ attributes."
+
+
+        coef_ = last_model.coef_
+        intercept_ = last_model.intercept_
+
+        if exclude:
+            exclude = [exclude] if isinstance(exclude, str) else exclude
+            x_var = list(set(feature_names_in_) - set(exclude))
+        x_var = [x_var] if isinstance(x_var, str) else x_var
+
+        chosed_var_index = np.isin(feature_names_in_, x_var)
+
+        coef_ = coef_[chosed_var_index]
+
+        Xt = Xt[:, chosed_var_index]
+
+        if coef_.ndim == 1:
+            return Xt @ coef_ + intercept_
+        else:
+            return Xt @ coef_.T + intercept_
+    else:
+
+
+        return pipline.predict(data)
+
 
 def lasso_select_model(
     train_df,
@@ -31,7 +132,7 @@ def lasso_select_model(
     key = name
     train_file = train_df
     test_file = test_df
-    method = "Lasso"
+    method = ["Lasso"]
 
     Path(current_save_path).mkdir(parents=True, exist_ok=True)
     current_save_pkl_path = f"{save_dir}/{key}_obj.pkl"
@@ -131,6 +232,11 @@ def lasso_select_model(
             save_dir = f"{cuttoff_model_savedir}/cutoff_{cutoff}.pkl"
         )
         cutoff_model_test_metrics["cutoff"] = cutoff
+        aic,bic = calculate_aic_bic(y_true = test_file[label], y_pred = test_file[f"{label}_pred"], n = test_file.shape[0], k = len(cutoff_features))
+        cutoff_model_test_metrics['AIC'], cutoff_model_test_metrics['BIC'] = aic, bic
+        cutoff_model_test_metrics['total_params'] = len(cutoff_features)
+        cutoff_model_test_metrics['total_non_zero_params'] = (cutoff_model['model'].coef_ != 0).sum()
+
         cutoff_models[cutoff] = {
             "model": cutoff_model,
             "test_metrics": cutoff_model_test_metrics,
@@ -167,6 +273,24 @@ def lasso_select_model(
         plt.savefig(f"{current_save_path}/cutoff_AUC.png", dpi=400)
     except:
         pass
+    ## plot aic and bic
+    try:
+        fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+        axes = axes.flatten()
+        aic_or_bic = ['AIC', 'BIC']
+        for idx in range(2):
+            ax = axes[idx]
+            to_plot_metric = aic_or_bic[idx]
+            sns.scatterplot(
+                x=cutoff_model_test_metrics_df["cutoff"],
+                y=cutoff_model_test_metrics_df[to_plot_metric],
+                label=to_plot_metric,
+                color = 'black',
+                ax =ax 
+            )
+        fig.savefig(f"{current_save_path}/cutoff_AIC_BIC.png", dpi=400)
+    except:
+        pass
 
     ## get the best cutoff
     best_cutoff = cutoff_model_test_metrics_df.sort_values("AUC", ascending=False).iloc[
@@ -178,7 +302,7 @@ def lasso_select_model(
     pd.concat([cutoff_model_test_metrics_df, pd.DataFrame(test_metrics, index=[0])], axis=0).to_csv(f"{current_save_path}/test_metrics.csv", index=False)
 
 
-def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, verbose=1,save_dir=None,y_type="bt"):
+def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verbose=1,save_dir=None,y_type="bt"):
     models_params = {
         "Logistic": {
             "model": LogisticRegression(
@@ -209,6 +333,7 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
     }
     if method_list is not None:
         models_params = {k: v for k, v in models_params.items() if k in method_list}
+
 
     train_df = train_df[[y_var] + X_var].copy().dropna()
     test_df = test_df[[y_var] + X_var].copy().dropna()
@@ -289,7 +414,7 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
     test_df[f"{y_var}_pred"] = test_pred
 
     train_auc = roc_auc_score(y_train, train_pred)
-    test_auc = roc_auc_score(y_test, test_pred)
+    # test_auc = roc_auc_score(y_test, test_pred)
 
     train_metrics = {
         "train_auc": train_auc,
@@ -314,17 +439,24 @@ def fit_best_model(train_df, test_df, X_var, y_var, method_list=None, cv=10, ver
 
 
 class EnsembleModel(object):
-    def __init__(self, models, coef_name=None, model_name_list=None):
+    def __init__(self, models, cov = None,coef_name=None, model_name_list=None):
         self.models = models
 
         if coef_name is None:
             if hasattr(self.models[0], "feature_names_in_"):
-                coef_name = self.models[0].coef_name
+                coef_name = self.models[0].feature_names_in_.tolist()
             else:
                 raise ValueError("coef_name should be provided")
         else:
             coef_name = coef_name
-        self.features = coef_name if coef_name else self.models["model"].coef_name
+
+        if cov:
+            if isinstance(cov, str):
+                cov = [cov]
+            # print(f"will drop cov: {','.join(cov)}")
+            # coef_name = list(set(coef_name) - set(cov))
+        self.features = coef_name 
+        self.cov = cov
 
         self.model_name_list = (
             model_name_list
@@ -334,23 +466,38 @@ class EnsembleModel(object):
 
         self.res = self._init_coeffeients_df()
         self._init_weights_dist()
+    def reinit(self, new_coef=None, cov=None):
+        self.__init__(self.models, coef_name = new_coef, cov=cov,model_name_list = self.model_name_list)
 
+    def __repr__(self) -> str:
+        return str(self.models)
     def _init_coeffeients_df(self):
 
+        res = []
+        for model_each in self.models:
+            coef_ = model_each.coef_ if hasattr(model_each, "coef_") else model_each["model"].coef_
+            if hasattr(model_each, "feature_names_in_"):
+                feature_names_in_ = model_each.feature_names_in_
+            elif hasattr(model_each["model"], "feature_names_in_"):
+                feature_names_in_ = model_each["model"].feature_names_in_
+            else:
+                raise ValueError(f"No feature_names_in found in {model_each}")
+            # feature_names_in_
+            choice_idx = np.isin(feature_names_in_, self.features)
+            coef_ = coef_[choice_idx]
+            feature_names_in_ = feature_names_in_[choice_idx]
+            res_df = pd.DataFrame(
+                coef_,
+                index = feature_names_in_
+            )
+            res_df.columns = ['coefficients']
+            res_df.sort_values("coefficients", ascending=False)
+            res.append(res_df)
+
+
         res = pd.concat(
-            [
-                pd.DataFrame(
-                    (
-                        model_each.coef_
-                        if hasattr(model_each, "coef_")
-                        else model_each["model"].coef_
-                    ),
-                    index=self.features,
-                    columns=["coefficients"],
-                ).sort_values("coefficients", ascending=False)
-                for model_each in self.models
-            ],
-            axis=1,
+            res,
+            axis=1
         )
         res.columns = [f"model_{i}" for i in range(len(self.model_name_list))]
         return res
@@ -489,23 +636,29 @@ class EnsembleModel(object):
             # fig.tight_layout()
             return ax1, ax2
 
-    def predict(self, data):
+    def predict(self, data,exclude=None, method="mean"):
         preds = []
 
         # check all feature in data 
         data = data.loc[:, self.features].copy()
+        if self.cov:
+            exclude = self.cov 
 
         for model in self.models:
-            if hasattr(model, "predict_proba"):
-                preds.append(model.predict_proba(data)[:, 1])
+            if exclude:  # 去除cov效应
+                preds.append(get_predict(model, data,x_var=self.features, exclude = exclude))
             else:
-                preds.append(model.predict(data))
-        if hasattr(self, "weight_model"):
+                if hasattr(model, "predict_proba"):
+                    preds.append(model.predict_proba(data)[:, 1])
+                else:
+                    preds.append(model.predict(data))
+
+        if hasattr(self, "weight_model") and method == "weight_model":
             return self.weight_model.predict(np.array(preds).T)
         else:
             return np.mean(preds, axis=0)
     
-    def fit_ensemble_weight(self, train_data, test_data, label="label"):
+    def fit_ensemble_weight(self, train_data, test_data, label="label",):
         """
         fit ensemble weight
         """
@@ -523,6 +676,9 @@ class EnsembleModel(object):
         train_dict = {}
         test_dict = {}
 
+        exclude = self.cov 
+
+
         for model_name, model in zip(self.model_name_list, self.models):
             if hasattr(model, "predict_proba"):
                 train_dict[model_name] = model.predict_proba(train_data[self.features])[
@@ -531,13 +687,17 @@ class EnsembleModel(object):
                 test_dict[model_name] = model.predict_proba(test_data[self.features])[:, 1]
 
             else:
-                train_dict[model_name] = model.predict(train_data[self.features])
-                test_dict[model_name] = model.predict(test_data[self.features])
+                if exclude:
+                    train_dict[model_name] = get_predict(model, train_data[self.features], exclude = exclude)
+                    test_dict[model_name] = get_predict(model, test_data[self.features], exclude = exclude)
+                else:
+                    train_dict[model_name] = model.predict(train_data[self.features])
+                    test_dict[model_name] = model.predict(test_data[self.features])
 
         train_df = pd.DataFrame(train_dict)
         test_df = pd.DataFrame(test_dict)
         # print(test_data.columns)
-        print(test_df)
+        # print(test_df)
         train_df["label"] = train_data[label]
         test_df["label"] = test_data[label]
 
@@ -556,10 +716,6 @@ class EnsembleModel(object):
         self.weight_model = weight_model
         return weight_model, train_metrics, test_metrics
 
-    # def predict_df(self, data):
-
-    #     data[f"pred_{self.label}"] = self.predict(data)
-    #     return data
 
 
 def fit_best_model_bootstrap(

@@ -132,6 +132,9 @@ def cal_binary_metrics_bootstrap(y, y_pred, ci_kwargs=None):
         "APR": APR,
         "APR_UCI": APR_CI[1],
         "APR_LCI": APR_CI[0],
+        "N": len(y),
+        "N_case": y.sum(),
+        "N_control": len(y) - y.sum(),
     }
 
 def cal_qt_metrics(y_true, y_pred):
@@ -464,3 +467,86 @@ def cal_corr_multivar(
     metrics.update(additional_metrics)
 
     return model, result_df, metrics, used_df
+
+import matplotlib.pyplot as plt
+from skmisc.loess import loess
+import seaborn as sns
+
+def plot_corrs(
+    data,
+    x,
+    y,
+    cofounders=None,
+    beta=None,
+    pvalue=None,
+    scatter_kw=None,
+    line_kw = None,
+    title=None,
+    ax=None,
+    model_type=None,
+):
+    # 如果没有传入 ax，就创建一个新的
+    if ax is None:
+        fig, ax = plt.subplots()
+    title = ""
+    # 定义默认参数
+    default_scatter_kw = {"alpha": 0.5, "edgecolors": "none"}
+    data = data[[x, y]].copy()
+    # 更新参数（如果用户提供了自定义参数）
+    if scatter_kw is not None:
+        default_scatter_kw.update(scatter_kw)
+
+    title += f"{x} vs {y}"
+    if beta is None and pvalue is None:
+
+        model_type = "glm" if model_type is None else model_type
+        title += f" {model_type} model"
+
+        if cofounders:
+            title += f" with {cofounders[:3]} etc."
+
+        model, res_df, used_df = cal_corr(
+            data, x, y, cofounders=cofounders, model_type=model_type, return_all=True
+        )
+        # loess_model = loess(used_df[y].values, used_df[f"{y}_pred"])
+
+        # data["loess"] = loess_model.predict(data[y].values).values
+
+        beta = res_df["coef"]
+        r = res_df["pearsonr"]
+        pvalue = res_df["pvalue"]
+        legend_text = f"Beta={beta:.2f}\nR={r:.2f}\np={pvalue:.2e}"
+
+    else:
+        legend_text = f"Beta={beta:.2f}\np={pvalue:.2e}"
+        title += f"{x} vs {y}"
+    # 绘制散点图
+    # line_kw.pop("ci")
+    sns.lineplot(data=data, x=x, y=y, ax=ax, color="black", ci = None, **line_kw)
+
+    ax.scatter(data[x], data[y], **default_scatter_kw)
+
+    # 添加相关性系数和 p 值
+    # 构建显示在图例中的文本
+    # 创建一个假的点（不可见的），仅用于在图例中显示相关性系数和 p 值
+    ax.plot([], [], " ", label=legend_text)
+
+    # 添加图例，利用 loc='best' 让 matplotlib 自动选择最佳位置
+    # ax.legend(loc='best')
+    ax.legend(
+        loc="best",
+        handlelength=0,
+        handletextpad=0,
+        frameon=False,
+        fontsize="medium",
+        labelspacing=1.2,
+    )
+
+    # 添加标题和轴标签
+
+    ax.set_title(title)
+    ax.set_xlabel(x)
+    ax.set_ylabel(y)
+
+    # 返回ax对象
+    return ax

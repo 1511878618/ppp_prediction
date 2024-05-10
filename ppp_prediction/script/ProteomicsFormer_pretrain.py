@@ -65,6 +65,7 @@ def getParser():
         default="tf32",
         help="precision",
     )
+    parser.add_argument('--tokenizer', type=str, default=None, help="tokenizer path")
 
 
 
@@ -175,13 +176,16 @@ if __name__ == "__main__":
     output = args.output
     Path(output).mkdir(parents=True, exist_ok=True)
 
-
+    if args.tokenizer is not None:
+        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+    else:
+        tokenizer = build_geneformer_tokenizer()
+        tokenizer.save_pretrained(f"{output}/tokenizer")
 
     # TODO: Supported for finetune with target
     if Path(args.train).is_file() and Path(args.test).is_file():
 
-        tokenizer = build_geneformer_tokenizer()
-        tokenizer.save_pretrained(f"{output}/tokenizer")
+
 
 
         if args.max_length is not None:
@@ -243,7 +247,7 @@ if __name__ == "__main__":
     elif Path(args.train).is_dir() and Path(args.test).is_dir():
         train_dataset = Dataset.load_from_disk(args.train)
         test_dataset = Dataset.load_from_disk(args.test)
-        tokenizer = AutoTokenizer.from_pretrained(f"{output}/tokenizer")   
+
 
     model = BertForMaskedLM.from_pretrained(args.ckpt)
 
