@@ -331,6 +331,9 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
         #     "param_grid": {"n_estimators": range(10, 101, 10)},
         # },
     }
+
+
+
     if method_list is not None:
         models_params = {k: v for k, v in models_params.items() if k in method_list}
 
@@ -349,56 +352,65 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
 
     X_test = test_df[X_var]
     y_test = test_df[y_var]
-    print(
-        f"train shape: {X_train.shape}, val shape is {X_val.shape}, test shape is {X_test.shape}"
-    )
-    best_models = []
-
-    for model_name, mp in models_params.items():
-        # if model_name == "RandomForest":
-        #     best_model = RandomForestClassifier(verbose=verbose)
-        #     best_model.fit(X_train.values, y_train.values)
-        #     auc = roc_auc_score(y_val, best_model.predict(X_val.values))
-        #     bset_params = None  # no params for RandomForest
-
-        # else:
-        if model_name == "Logistic":
-            scorer = make_scorer(roc_auc_score, needs_proba=True)
-        else:
-            scorer = make_scorer(roc_auc_score)
-        rf = Pipeline(
-            [
-                ("scaler", StandardScaler()),
-                ("model", mp["model"]),
-            ]
+    if save_dir is not None and Path(save_dir).exists():
+        best_model = pickle.load(open(save_dir, "rb"))
+        if hasattr(best_model, "predict_proba"):
+            best_model_name = "Logistic"
+        else :
+            best_model_name = "Lasso"
+    else:
+        print(
+            f"train shape: {X_train.shape}, val shape is {X_val.shape}, test shape is {X_test.shape}"
         )
-        params_dict = {f"model__{k}": v for k, v in mp["param_grid"].items()}
-        grid_search = GridSearchCV(
-            rf, params_dict, scoring=scorer, cv=cv, verbose=verbose
-        )
-        # grid_search.fit(X_train.values, y_train.values)
-        grid_search.fit(X_train, y_train)
+        best_models = []
 
-        best_model = grid_search.best_estimator_
-        bset_params = grid_search.best_params_
+        for model_name, mp in models_params.items():
+            # if model_name == "RandomForest":
+            #     best_model = RandomForestClassifier(verbose=verbose)
+            #     best_model.fit(X_train.values, y_train.values)
+            #     auc = roc_auc_score(y_val, best_model.predict(X_val.values))
+            #     bset_params = None  # no params for RandomForest
 
-        if model_name == "Logistic":
-            auc = roc_auc_score(y_val, best_model.predict_proba(X_val.values)[:, 1])
-        else:
-            auc = roc_auc_score(y_val, best_model.predict(X_val.values))
-        print(f"model: {model_name}\tBest parameters: {bset_params}, with auc: {auc}")
-        best_models.append((model_name, best_model, grid_search, auc))
+            # else:
+            if model_name == "Logistic":
+                scorer = make_scorer(roc_auc_score, needs_proba=True)
+            else:
+                scorer = make_scorer(roc_auc_score)
+            rf = Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    ("model", mp["model"]),
+                ]
+            )
+            params_dict = {f"model__{k}": v for k, v in mp["param_grid"].items()}
+            grid_search = GridSearchCV(
+                rf, params_dict, scoring=scorer, cv=cv, verbose=verbose
+            )
+            # grid_search.fit(X_train.values, y_train.values)
+            grid_search.fit(X_train, y_train)
 
-    ## select the currently best
-    # print(best_models)
+            best_model = grid_search.best_estimator_
+            bset_params = grid_search.best_params_
+
+            if model_name == "Logistic":
+                auc = roc_auc_score(y_val, best_model.predict_proba(X_val.values)[:, 1])
+            else:
+                auc = roc_auc_score(y_val, best_model.predict(X_val.values))
+            print(f"model: {model_name}\tBest parameters: {bset_params}, with auc: {auc}")
+            best_models.append((model_name, best_model, grid_search, auc))
+
+        ## select the currently best
+        # print(best_models)
+
+
+        best_mdoels = list(sorted(best_models, key=lambda x: x[-1], reverse=True))
+        best_model_name, best_model, *_ = best_mdoels[0]
+
 
     # 还原原始的train_df
     train_df = pd.concat([train_df, val_df], axis=0)
     X_train = train_df[X_var]
     y_train = train_df[y_var]
-
-    best_mdoels = list(sorted(best_models, key=lambda x: x[-1], reverse=True))
-    best_model_name, best_model, *_ = best_mdoels[0]
 
     if best_model_name == "Logistic":
         train_pred = best_model.predict_proba(X_train.values)[:, 1]
