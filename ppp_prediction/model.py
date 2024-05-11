@@ -358,6 +358,7 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
             best_model_name = "Logistic"
         else :
             best_model_name = "Lasso"
+        best_models = None 
     else:
         print(
             f"train shape: {X_train.shape}, val shape is {X_val.shape}, test shape is {X_test.shape}"
