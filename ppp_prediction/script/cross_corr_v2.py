@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 '''
-@Description:   cal corr among input files with col names by filenames    :
-@Date     :2023/12/01 19:34:55
+@Description:       :
+@Date     :2024/05/11 16:56:58
 @Author      :Tingfeng Xu
 @version      :1.0
 '''
@@ -121,132 +121,132 @@ def rank_to_normal(rank, c, n):
 # rank_INT end 
 
 
-def cal_pearsonr(x, y):
-    try:
-        r, p = pearsonr(x, y)
-    except:
-        r, p = None, None 
-    return {"r":r, "pvalue":p}
+# def cal_pearsonr(x, y):
+#     try:
+#         r, p = pearsonr(x, y)
+#     except:
+#         r, p = None, None 
+#     return {"r":r, "pvalue":p}
     
 
-def logistic_regression(data, x, y, confounding=None):
-    # Define the independent variables (X) and the dependent variable (y)
-    if confounding:
-        if not isinstance(confounding, list):
-            confounding = [confounding]
+# def logistic_regression(data, x, y, confounding=None):
+#     # Define the independent variables (X) and the dependent variable (y)
+#     if confounding:
+#         if not isinstance(confounding, list):
+#             confounding = [confounding]
 
 
-    x_counfound = [x] + confounding if confounding else [x]
+#     x_counfound = [x] + confounding if confounding else [x]
 
-    # drop na 
-    # print(x, y, confounding)
-    # data = data.dropna(subset=x_counfound + [y], how="any").reset_index(drop=True)
-    used_cols = x_counfound + [y]
-    data = data[used_cols].dropna(how="any").reset_index(drop=True)
-    print(f"x is {x} and y is {y}, confounding is {confounding}; after dropna, keep {data.shape[0]} rows in analysis.")
+#     # drop na 
+#     # print(x, y, confounding)
+#     # data = data.dropna(subset=x_counfound + [y], how="any").reset_index(drop=True)
+#     used_cols = x_counfound + [y]
+#     data = data[used_cols].dropna(how="any").reset_index(drop=True)
+#     print(f"x is {x} and y is {y}, confounding is {confounding}; after dropna, keep {data.shape[0]} rows in analysis.")
 
-    if confounding:
-        print(f"x is {x} and y is {y} with conditional: {','.join(confounding)} and shape is {data.shape}")
-    else: 
-        print(f"x is {x} and y is {y} and shape is {data.shape}")
-    N = data.shape[0]
-    N_case = data[y].sum()
-    N_control = N - N_case
+#     if confounding:
+#         print(f"x is {x} and y is {y} with conditional: {','.join(confounding)} and shape is {data.shape}")
+#     else: 
+#         print(f"x is {x} and y is {y} and shape is {data.shape}")
+#     N = data.shape[0]
+#     N_case = data[y].sum()
+#     N_control = N - N_case
 
-    X = data[x_counfound]
-    y = data[y]
+#     X = data[x_counfound]
+#     y = data[y]
 
-    # Add a constant term to the independent variables
-    X = sm.add_constant(X)
+#     # Add a constant term to the independent variables
+#     X = sm.add_constant(X)
 
-    # Fit the logistic regression model
-    model = sm.Logit(y, X)
-    try:
-        result = model.fit()
-        model.fit_regularized()
+#     # Fit the logistic regression model
+#     model = sm.Logit(y, X)
+#     try:
+#         result = model.fit()
+#         model.fit_regularized()
 
-        # Get the beta coefficients
-        beta = result.params
+#         # Get the beta coefficients
+#         beta = result.params
 
-        # Get the p-values of the coefficients
-        p_values = result.pvalues
+#         # Get the p-values of the coefficients
+#         p_values = result.pvalues
 
-        return {"beta": beta[x], "pvalue":p_values[x], "N":N, "N_case" : N_case, "N_control" : N_control}
-    except:
-        return {"beta": None, "pvalue":None, "N":None, "N_case":None, "N_control":None}
+#         return {"beta": beta[x], "pvalue":p_values[x], "N":N, "N_case" : N_case, "N_control" : N_control}
+#     except:
+#         return {"beta": None, "pvalue":None, "N":None, "N_case":None, "N_control":None}
 
-def linear(data, x, y, confounding=None):
-    # Define the independent variables (X) and the dependent variable (y)
-    if confounding:
-        if not isinstance(confounding, list):
-            confounding = [confounding]
+# def linear(data, x, y, confounding=None):
+#     # Define the independent variables (X) and the dependent variable (y)
+#     if confounding:
+#         if not isinstance(confounding, list):
+#             confounding = [confounding]
     
-    x_counfound = [x] + confounding if confounding else [x]
+#     x_counfound = [x] + confounding if confounding else [x]
 
-    # drop na 
-    data = data.dropna(subset=x_counfound + [y], how="any").reset_index(drop=True)
-    print(f"x is {x} and y is {y}, confounding is {confounding}; after dropna, keep {data.shape[0]} rows in analysis.")
-    N = data.shape[0]
-    X = data[x_counfound]
-    y = data[y]
+#     # drop na 
+#     data = data.dropna(subset=x_counfound + [y], how="any").reset_index(drop=True)
+#     print(f"x is {x} and y is {y}, confounding is {confounding}; after dropna, keep {data.shape[0]} rows in analysis.")
+#     N = data.shape[0]
+#     X = data[x_counfound]
+#     y = data[y]
 
-    # Add a constant term to the independent variables
-    X = sm.add_constant(X)
+#     # Add a constant term to the independent variables
+#     X = sm.add_constant(X)
 
-    # Fit the logistic regression model
-    model = sm.OLS(y, X, )
-
-
-    result = model.fit()
-
-    # Get the beta coefficients
-    beta = result.params
-
-    # Get the p-values of the coefficients
-    p_values = result.pvalues
-
-    return {"beta": beta[x], "pvalue":p_values[x], "N":N}
-    # except:
-    #     return {"beta": None, "pvalue":None}
+#     # Fit the logistic regression model
+#     model = sm.OLS(y, X, )
 
 
+#     result = model.fit()
 
-def cal_corrs(data, x, y, method, cond_cols=None):
-    if method == "pearson":
-        tmp_data = data[[x, y]].dropna()
-        return cal_pearsonr(tmp_data[x], tmp_data[y])
-    elif method == "logistic":
-        return logistic_regression(data, x, y, cond_cols)
-    elif method == "linear":
-        return linear(data, x, y, cond_cols)
-    else:
-        return NotImplementedError(f"method {method} not supported yet")
+#     # Get the beta coefficients
+#     beta = result.params
+
+#     # Get the p-values of the coefficients
+#     p_values = result.pvalues
+
+#     return {"beta": beta[x], "pvalue":p_values[x], "N":N}
+#     # except:
+#     #     return {"beta": None, "pvalue":None}
 
 
 
-def cross_corrs(main_df, query_cols,key_cols, method="pearson", cond_cols=None):
-    """
-    main_df cols is equal: [query_cols, key_cols]
-    so query_cols = main_df.columns - key_cols
+# def cal_corrs(data, x, y, method, cond_cols=None):
+#     if method == "pearson":
+#         tmp_data = data[[x, y]].dropna()
+#         return cal_pearsonr(tmp_data[x], tmp_data[y])
+#     elif method == "logistic":
+#         return logistic_regression(data, x, y, cond_cols)
+#     elif method == "linear":
+#         return linear(data, x, y, cond_cols)
+#     else:
+#         return NotImplementedError(f"method {method} not supported yet")
 
-    will combination between query_cols and key_cols 
 
-    return: pd.DataFrame
+
+# def cross_corrs(main_df, query_cols,key_cols, method="pearson", cond_cols=None):
+#     """
+#     main_df cols is equal: [query_cols, key_cols]
+#     so query_cols = main_df.columns - key_cols
+
+#     will combination between query_cols and key_cols 
+
+#     return: pd.DataFrame
     
-    """
-    res = []
-    if isinstance(main_df, str): # read tmp_part_file_path
-        main_df = read_data(main_df)
+#     """
+#     res = []
+#     if isinstance(main_df, str): # read tmp_part_file_path
+#         main_df = read_data(main_df)
 
-    # query_cols = list(set(main_df.columns) - set(key_cols)) if cond_cols is None else list(set(main_df.columns) - set(key_cols) - set(cond_cols)) # main_df.columns - key_cols => query_cols 
+#     # query_cols = list(set(main_df.columns) - set(key_cols)) if cond_cols is None else list(set(main_df.columns) - set(key_cols) - set(cond_cols)) # main_df.columns - key_cols => query_cols 
     
-    for query_col in query_cols: # query 
-        for key_col in key_cols: # key
+#     for query_col in query_cols: # query 
+#         for key_col in key_cols: # key
 
-            corr_dict = cal_corrs(data = main_df, x= query_col, y=key_col, method = method, cond_cols = cond_cols)
-            res.append({**{"query":query_col, "key":key_col} , **corr_dict})
+#             corr_dict = cal_corrs(data = main_df, x= query_col, y=key_col, method = method, cond_cols = cond_cols)
+#             res.append({**{"query":query_col, "key":key_col} , **corr_dict})
 
-    return pd.DataFrame(res) 
+#     return pd.DataFrame(res) 
 
 
 def read_data(path:str):
