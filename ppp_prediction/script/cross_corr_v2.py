@@ -308,6 +308,7 @@ def getParser():
 
     parser.add_argument("-m", "--method", dest="method", default="pearson", required=False, choices=["glm", "ols", "logistic"]) # may supported for multiple method
     # parser.add_argument("--lowmem", action="store_true", dest="lowmem", help="low memory for cal")
+    parser.add_argument("--norm_x", dest="norm_x",default=None, help="norm x before cal corrs, supported int or zscore", required=False, choices=["int", "zscore", None])
     parser.add_argument("--verbose", action="store_true", dest="verbose", help="print verbose output")
 
     return parser
@@ -376,7 +377,7 @@ if __name__ == "__main__":
     key_path = args.key
     output = args.output
     threads = args.threads
-
+    norm_x = args.norm_x
     # index_cols = None if len(args.index_on) ==0 else args.index_on
     method = args.method
     # lowmem = args.lowmem
@@ -407,6 +408,7 @@ if __name__ == "__main__":
         y=col_dict["key_cols"],
         cofounder=col_dict["cond_cols"],
         adjust=adjust,
+        norm_x = norm_x,
         model_type=method,
         threads=threads,
         verbose=verbose

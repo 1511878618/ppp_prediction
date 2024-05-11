@@ -12,7 +12,7 @@ from sklearn.metrics import (
 from scipy.stats import pearsonr, spearmanr
 import statsmodels.api as sm
 from typing import Union, overload, Tuple, List
-from tqdm.rich import tqdm
+from tqdm import tqdm
 import numpy as np
 from confidenceinterval.bootstrap import bootstrap_ci
 import confidenceinterval as ci
@@ -30,6 +30,65 @@ from sklearn.metrics import (
     accuracy_score,
 )
 from scipy.stats import pearsonr, spearmanr
+import scipy.stats as ss
+
+def rank_INT(series, c=3.0/8, stochastic=True):
+    """ Perform rank-based inverse normal transformation on pandas series.
+        If stochastic is True ties are given rank randomly, otherwise ties will
+        share the same value. NaN values are ignored.
+
+        Args:
+            param1 (pandas.Series):   Series of values to transform
+            param2 (Optional[float]): Constand parameter (Bloms constant)
+            param3 (Optional[bool]):  Whether to randomise rank of ties
+        
+        Returns:
+            pandas.Series
+    """
+
+    # Check input
+    assert(isinstance(series, pd.Series))
+    assert(isinstance(c, float))
+    assert(isinstance(stochastic, bool))
+
+    # Set seed
+    np.random.seed(123)
+
+    # Take original series indexes
+    
+
+    raw_series = series.copy()
+    # Drop NaNs
+    series = series.loc[~pd.isnull(series)]
+    orig_idx = series.index
+
+    # Get ranks
+    if stochastic == True:
+        # Shuffle by index
+        series = series.loc[np.random.permutation(series.index)]
+        # Get rank, ties are determined by their position in the series (hence
+        # why we randomised the series)
+        rank = ss.rankdata(series, method="ordinal")
+    else:
+        # Get rank, ties are averaged
+        rank = ss.rankdata(series, method="average")
+
+    # Convert numpy array back to series
+    rank = pd.Series(rank, index=series.index)
+
+    # Convert rank to normal distribution
+    transformed = rank.apply(rank_to_normal, c=c, n=len(rank))
+    
+    # return transformed[orig_idx]
+    raw_series[orig_idx] = transformed[orig_idx]
+    return raw_series
+
+def rank_to_normal(rank, c, n):
+    # Standard quantile function
+    x = (rank - c) / (n - 2*c + 1)
+    return ss.norm.ppf(x)
+
+
 
 def cal_residual(df, x: List, y: str, plus_mean=True, return_model=False):
     """
@@ -407,6 +466,7 @@ def cal_corr_v2(
         y:Union[str, List[str]],
         cofounder:Union[str, List[str]]=None,
         adjust:bool=True,
+        norm_x=None,
         model_type:Union[str, List[str]]="linear",
         threads:int=4,
         family=sm.families.Gaussian(),
@@ -440,18 +500,18 @@ def cal_corr_v2(
         x_y_model_combination = list(product(x, y, model_type))
         print(f"total {len(x_y_model_combination)} combination of  to cal by threads {threads}")
         if threads ==1:
-            res = [cal_corr_v2(df[[x, y] + cofounder], x, y, cofounder,adjust, current_model_type, threads, family,verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs")]
+            res = [cal_corr_v2(df[[x, y] + cofounder], x, y, cofounder,adjust,norm_x, current_model_type, threads, family,verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs")]
                 
         else:
             from joblib import Parallel, delayed
-            res = Parallel(n_jobs=threads)(delayed(cal_corr_v2)(df[[x, y] + cofounder], x, y, cofounder, adjust,current_model_type, 1, family, verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs"))
+            res = Parallel(n_jobs=threads)(delayed(cal_corr_v2)(df[[x, y] + cofounder], x, y, cofounder, adjust,norm_x,current_model_type, 1, family, verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs"))
 
         return pd.concat(res, axis=1).T
         
 
 
     elif isinstance(x, str) and isinstance(y, str) and isinstance(model_type, str):
-
+    # try:
         cofounder = [cofounder] if isinstance(cofounder, str) else cofounder
         if threads >1:
             print(f"threads is {threads} and x is {x} and y is {y}, which is str, so don't supported for multi threads")
@@ -459,17 +519,29 @@ def cal_corr_v2(
         used_df = df[[x, y] + cofounder].copy().dropna(how="any")
 
 
+        if norm_x == "zscore":
+            print(f"normalizing x={x} by zscore")
+            used_df[x] = (used_df[x] - used_df[x].mean()) / used_df[x].std()
+        elif norm_x == "int":
+            print(f"normalizing x={x} by rank inverse normal transformation")
+            used_df[x] = rank_INT(used_df[x])
+        else:
+            pass
+
+
         X = sm.add_constant(used_df[[x] + cofounder])
         Y = used_df[y]
         X_Y_dict={"":(X, Y)}
         if adjust:
-            Y_adjust = cal_residual(used_df, x=cofounder, y=y)
+            Y_adjust = cal_residual(used_df, x=cofounder, y=y)[f"{y}_residual"]
             X_adjust = sm.add_constant(used_df[[x]])
 
             X_Y_dict['adjust'] = (X_adjust, Y_adjust)
-
+            if model_type == 'logistic':
+                raise ValueError("adjust not support for logistic model, so use ols or glm instead")
 
         res_dict = {}
+
         for k, (X, Y) in X_Y_dict.items():
             if model_type == "glm":
                 model = sm.GLM(Y, X, family=family).fit()
@@ -543,6 +615,9 @@ def cal_corr_v2(
                 result.update({"N": used_df.shape[0]})
                 res_dict.update(result)
         return pd.Series(res_dict)
+        # except:
+        #     print(f"error for x={x} and y={y} and model_type={model_type}")
+        #     return pd.Series({})
     else:
         raise ValueError("x and y  and model_type should be all str or list of str," + f"but is {type(x)}, {type(y)}, {type(model_type)}"+"not support for other type")
 
