@@ -404,8 +404,8 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
         # print(best_models)
 
 
-        best_mdoels = list(sorted(best_models, key=lambda x: x[-1], reverse=True))
-        best_model_name, best_model, *_ = best_mdoels[0]
+        best_models = list(sorted(best_models, key=lambda x: x[-1], reverse=True))
+        best_model_name, best_model, *_ = best_models[0]
 
 
     # 还原原始的train_df
@@ -448,7 +448,7 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
             pickle.dump(best_model, open(f"{save_dir}", "wb"))
     except:
         pass 
-    return best_model, train_metrics, test_metrics, train_df, test_df, best_mdoels
+    return best_model, train_metrics, test_metrics, train_df, test_df, best_models
 
 
 class EnsembleModel(object):
