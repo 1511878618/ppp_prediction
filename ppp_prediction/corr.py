@@ -440,11 +440,11 @@ def cal_corr_v2(
         x_y_model_combination = list(product(x, y, model_type))
         print(f"total {len(x_y_model_combination)} combination of  to cal by threads {threads}")
         if threads ==1:
-            res = [cal_corr(df[[x, y] + cofounder], x, y, cofounder,adjust, current_model_type, threads, family,verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs")]
+            res = [cal_corr_v2(df[[x, y] + cofounder], x, y, cofounder,adjust, current_model_type, threads, family,verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs")]
                 
         else:
             from joblib import Parallel, delayed
-            res = Parallel(n_jobs=threads)(delayed(cal_corr)(df[[x, y] + cofounder], x, y, cofounder, adjust,current_model_type, 1, family, verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs"))
+            res = Parallel(n_jobs=threads)(delayed(cal_corr_v2)(df[[x, y] + cofounder], x, y, cofounder, adjust,current_model_type, 1, family, verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs"))
 
         return pd.concat(res, axis=1).T
         
