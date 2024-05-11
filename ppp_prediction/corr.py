@@ -485,7 +485,7 @@ def cal_corr_v2(
                 # metrics = {"Persudo_R2": model.pseudo_rsquared()}
                 # metrics.update(cal_qt_metrics(Y, y_pred))
                 metrics = cal_qt_metrics(Y, y_pred)
-            elif model_type == "logit":
+            elif model_type == "logistic":
                 model = sm.Logit(Y, X).fit()
                 y_pred = model.predict(X)
                 metrics = cal_binary_metrics(Y, y_pred)
