@@ -511,113 +511,113 @@ def cal_corr_v2(
 
 
     elif isinstance(x, str) and isinstance(y, str) and isinstance(model_type, str):
-    # try:
-        cofounder = [cofounder] if isinstance(cofounder, str) else cofounder
-        if threads >1:
-            print(f"threads is {threads} and x is {x} and y is {y}, which is str, so don't supported for multi threads")
+        try:
+            cofounder = [cofounder] if isinstance(cofounder, str) else cofounder
+            if threads >1:
+                print(f"threads is {threads} and x is {x} and y is {y}, which is str, so don't supported for multi threads")
 
-        used_df = df[[x, y] + cofounder].copy().dropna(how="any")
-
-
-        if norm_x == "zscore":
-            print(f"normalizing x={x} by zscore")
-            used_df[x] = (used_df[x] - used_df[x].mean()) / used_df[x].std()
-        elif norm_x == "int":
-            print(f"normalizing x={x} by rank inverse normal transformation")
-            used_df[x] = rank_INT(used_df[x])
-        else:
-            pass
+            used_df = df[[x, y] + cofounder].copy().dropna(how="any")
 
 
-        X = sm.add_constant(used_df[[x] + cofounder])
-        Y = used_df[y]
-        X_Y_dict={"":(X, Y)}
-        if adjust:
-            Y_adjust = cal_residual(used_df, x=cofounder, y=y)[f"{y}_residual"]
-            X_adjust = sm.add_constant(used_df[[x]])
-
-            X_Y_dict['adjust'] = (X_adjust, Y_adjust)
-            if model_type == 'logistic':
-                raise ValueError("adjust not support for logistic model, so use ols or glm instead")
-
-        res_dict = {}
-
-        for k, (X, Y) in X_Y_dict.items():
-            if model_type == "glm":
-                model = sm.GLM(Y, X, family=family).fit()
-                y_pred = model.predict(X)
-                metrics = cal_qt_metrics(Y, y_pred)
-
-                # metrics = {"Persudo_R2": model.pseudo_rsquared()}
-                # metrics.update(cal_qt_metrics(Y, y_pred))
-            elif model_type == "ols":
-                model = sm.OLS(Y, X).fit()
-                y_pred = model.predict(X)
-
-                # metrics = {"Persudo_R2": model.pseudo_rsquared()}
-                # metrics.update(cal_qt_metrics(Y, y_pred))
-                metrics = cal_qt_metrics(Y, y_pred)
-            elif model_type == "logistic":
-                model = sm.Logit(Y, X).fit()
-                y_pred = model.predict(X)
-                metrics = cal_binary_metrics(Y, y_pred)
+            if norm_x == "zscore":
+                print(f"normalizing x={x} by zscore")
+                used_df[x] = (used_df[x] - used_df[x].mean()) / used_df[x].std()
+            elif norm_x == "int":
+                print(f"normalizing x={x} by rank inverse normal transformation")
+                used_df[x] = rank_INT(used_df[x])
             else:
-                raise ValueError(f"model_type {model_type} not supported")
-            
-            model_res = (
-                model.summary2()
-                .tables[1]
-                .rename(
-                    columns={
-                        "Coef.": "coef",
-                        "Std.Err.": "std",
-                        "z": "z",
-                        "P>|z|": "pvalue",
-                        "[0.025": "upper_ci",
-                        "0.975]": "lower_ci",
-                    }
+                pass
+
+
+            X = sm.add_constant(used_df[[x] + cofounder])
+            Y = used_df[y]
+            X_Y_dict={"":(X, Y)}
+            if adjust:
+                Y_adjust = cal_residual(used_df, x=cofounder, y=y)[f"{y}_residual"]
+                X_adjust = sm.add_constant(used_df[[x]])
+
+                X_Y_dict['adjust'] = (X_adjust, Y_adjust)
+                if model_type == 'logistic':
+                    raise ValueError("adjust not support for logistic model, so use ols or glm instead")
+
+            res_dict = {}
+
+            for k, (X, Y) in X_Y_dict.items():
+                if model_type == "glm":
+                    model = sm.GLM(Y, X, family=family).fit()
+                    y_pred = model.predict(X)
+                    metrics = cal_qt_metrics(Y, y_pred)
+
+                    # metrics = {"Persudo_R2": model.pseudo_rsquared()}
+                    # metrics.update(cal_qt_metrics(Y, y_pred))
+                elif model_type == "ols":
+                    model = sm.OLS(Y, X).fit()
+                    y_pred = model.predict(X)
+
+                    # metrics = {"Persudo_R2": model.pseudo_rsquared()}
+                    # metrics.update(cal_qt_metrics(Y, y_pred))
+                    metrics = cal_qt_metrics(Y, y_pred)
+                elif model_type == "logistic":
+                    model = sm.Logit(Y, X).fit()
+                    y_pred = model.predict(X)
+                    metrics = cal_binary_metrics(Y, y_pred)
+                else:
+                    raise ValueError(f"model_type {model_type} not supported")
+                
+                model_res = (
+                    model.summary2()
+                    .tables[1]
+                    .rename(
+                        columns={
+                            "Coef.": "coef",
+                            "Std.Err.": "std",
+                            "z": "z",
+                            "P>|z|": "pvalue",
+                            "[0.025": "upper_ci",
+                            "0.975]": "lower_ci",
+                        }
+                    )
+                    .loc[x]
+                    .to_dict()
                 )
-                .loc[x]
-                .to_dict()
-            )
 
 
-            result = {
-                "var": x,
-                "exposure": y,
-                "model": model_type,
-                "pvalue": model.pvalues[x],
-                "coef": model.params[x],
-                "std": model_res["std"],
-                "z": model_res["z"] if "z" in model_res else None,
-                "upper": model_res["upper_ci"],
-                "lower": model_res["lower_ci"],
-            }
-            result.update(metrics)
+                result = {
+                    "var": x,
+                    "exposure": y,
+                    "model": model_type,
+                    "pvalue": model.pvalues[x],
+                    "coef": model.params[x],
+                    "std": model_res["std"],
+                    "z": model_res["z"] if "z" in model_res else None,
+                    "upper": model_res["upper_ci"],
+                    "lower": model_res["lower_ci"],
+                }
+                result.update(metrics)
 
-            if k == "adjust":  # only update coef, std, upper and lower
-                to_update_for_adjust_metrics_keys = [
-                    "coef", "std", "upper", "lower"
-                ]
-                res_dict.update(
-                    {
-                        f"{k}_adjust":result[k] for k in to_update_for_adjust_metrics_keys
-                    }
+                if k == "adjust":  # only update coef, std, upper and lower
+                    to_update_for_adjust_metrics_keys = [
+                        "coef", "std", "upper", "lower"
+                    ]
+                    res_dict.update(
+                        {
+                            f"{k}_adjust":result[k] for k in to_update_for_adjust_metrics_keys
+                        }
 
-                )
-            else:
-                if len(used_df[y].unique()) <= 2:
-                    case_control_metrics = {
-                        "n_case": used_df[y].sum(),
-                        "n_control": used_df.shape[0] - used_df[y].sum(),
-                    }
-                    result.update(case_control_metrics)
-                result.update({"N": used_df.shape[0]})
-                res_dict.update(result)
-        return pd.Series(res_dict)
-        # except:
-        #     print(f"error for x={x} and y={y} and model_type={model_type}")
-        #     return pd.Series({})
+                    )
+                else:
+                    if len(used_df[y].unique()) <= 2:
+                        case_control_metrics = {
+                            "n_case": used_df[y].sum(),
+                            "n_control": used_df.shape[0] - used_df[y].sum(),
+                        }
+                        result.update(case_control_metrics)
+                    result.update({"N": used_df.shape[0]})
+                    res_dict.update(result)
+            return pd.Series(res_dict)
+        except:
+            print(f"Error for x={x} and y={y} and model_type={model_type}")
+            return pd.Series({})
     else:
         raise ValueError("x and y  and model_type should be all str or list of str," + f"but is {type(x)}, {type(y)}, {type(model_type)}"+"not support for other type")
 
