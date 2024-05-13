@@ -1,4 +1,4 @@
-name: rapids-24.02
+name: ml
 channels:
   - nvidia
   - bioconda
