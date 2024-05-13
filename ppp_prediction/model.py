@@ -68,6 +68,10 @@ def get_predict(
     用以对pipline的计算过程最后一步去除cov的权重
     
     """
+    if isinstance(pipline, EnsembleModel):
+        return pipline.predict(data, exclude=exclude)
+
+
     if x_var is not None :
         feature_names_in_ = x_var
     elif hasattr(pipline, "feature_names_in_"):
@@ -533,7 +537,7 @@ class EnsembleModel(object):
         ].abs()
         self.weights_dist_df = weights_dist_df
 
-    def _plot_top_k_features(self, k=10, pallete="viridis", ax=None):
+    def _plot_top_k_features(self, k=10, pallete="viridis", ax=None, exclude=None):
         """
         plot top k features
         """
@@ -542,11 +546,31 @@ class EnsembleModel(object):
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=(5, k))
 
-        top_k_features = self.weights_dist_df.sort_values(
-            by=["mean_coefficients"],
-            ascending=False,
-        )
-        plt_data = self.res.loc[
+        exclude = self.cov if exclude is None else exclude + self.cov
+        if isinstance(exclude, str):
+            exclude = [exclude]
+
+        if exclude is not None:
+            plt_data = self.res.loc[
+                self.res.index.difference(exclude), :
+            ]
+
+            top_k_features = self.weights_dist_df
+            top_k_features = top_k_features.loc[
+                top_k_features.index.difference(exclude), :
+            ].sort_values(
+                by=["mean_coefficients"],
+                ascending=False,
+            )
+        else:
+            plt_data = self.res
+            top_k_features = self.weights_dist_df.sort_values(
+                by=["mean_coefficients"],
+                ascending=False,
+            )
+
+
+        plt_data = plt_data.loc[
             [*top_k_features.index[:k], *top_k_features.index[-k:]], :
         ]
         plt_data = plt_data.reset_index(drop=False).melt(id_vars="index")
@@ -567,7 +591,7 @@ class EnsembleModel(object):
         ax.set_title(f"Top {k} Features")
         return ax
 
-    def _show_models_coeffients(self, axes=None, color="#d67b7f", top=5):
+    def _show_models_coeffients(self, axes=None, color="#d67b7f", top=5, exclude=None):
         """
         res:
             model1 model2
@@ -580,6 +604,13 @@ class EnsembleModel(object):
             self.res = self._init_coeffeients_df()
         res = self.res.loc[self.features, :]
 
+        exclude = self.cov if exclude is None else exclude + self.cov
+        if isinstance(exclude, str):
+            exclude = [exclude]
+        res = res.loc[
+            res.index.difference(exclude), :
+        ]
+        
         if axes is None:
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
         else:
@@ -595,6 +626,8 @@ class EnsembleModel(object):
             index=["percent_of_nonZero_coefficients", "mean_coefficients"],
         ).T
         plt_data["abs_mean_coefficients"] = plt_data["mean_coefficients"].abs()
+
+
 
         # ax1
         sns.scatterplot(
@@ -649,6 +682,122 @@ class EnsembleModel(object):
             # fig.tight_layout()
             return ax1, ax2
 
+    def coef_barplot(
+        self,
+        cmap="RdBu_r",
+        k=10,
+        ax=None,
+        errorbar_kwargs=None,
+        scatter_kwargs=None,
+        exclude=["age", "sex"],
+    ):
+        from adjustText import adjust_text
+        from scipy import stats
+
+        if errorbar_kwargs is None:
+            errorbar_kwargs = {}
+        if scatter_kwargs is None:
+            scatter_kwargs = {}
+
+        plt_data = self.res.copy()
+
+        def cal_ci(x):
+            mean_x = x.mean()
+            scale = stats.sem(x)
+            ci_low, ci_high = stats.t.interval(0.95, len(x) - 1, loc=mean_x, scale=scale)
+            return {"mean": mean_x, "ci_low": ci_low, "ci_high": ci_high}
+
+        # drop age sex
+
+        exclude = self.cov if exclude is None else exclude + self.cov
+        if isinstance(exclude, str):
+            exclude = [exclude]
+
+        plt_data = plt_data.loc[[i not in exclude for i in plt_data.index.tolist()]]
+
+        plt_data = plt_data.apply(
+            lambda x: pd.Series(cal_ci(x)),
+            axis=1,
+        )
+        plt_data = plt_data.sort_values("mean", ascending=False).reset_index(
+            drop=False, names="feature"
+        )
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(12, 4))
+        plt_data["error_low"] = plt_data["mean"] - plt_data["ci_low"]
+        plt_data["error_high"] = plt_data["ci_high"] - plt_data["mean"]
+
+        # 绘制误差线
+
+        ax.errorbar(
+            x=plt_data.index,
+            y=plt_data["mean"],
+            yerr=[plt_data["mean"] - plt_data.ci_low, plt_data.ci_high - plt_data["mean"]],
+            fmt=errorbar_kwargs.pop("fmt", "none"),  # 不使用标记
+            lw=errorbar_kwargs.pop("lw", 1),
+            capsize=errorbar_kwargs.pop("capsize", 2),
+            ecolor=errorbar_kwargs.pop("ecolor", "lightgrey"),  # 将误差线设置为浅灰色
+            **errorbar_kwargs,
+        )
+
+        # 使用scatter添加颜色渐变的散点
+        # 计算每个点的颜色
+        colors = plt_data["mean"]
+        min_value = max(abs(colors.min()), abs(colors.max()))
+        norm = plt.Normalize(-min_value, min_value)
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+
+        sc = ax.scatter(
+            plt_data.index,
+            plt_data["mean"],
+            c=colors,
+            cmap=cmap,
+            s=scatter_kwargs.pop("s", 5),
+            # edgecolor="k",
+            zorder=scatter_kwargs.pop("zorder", 3),
+            **scatter_kwargs,
+        )
+        cb = plt.colorbar(sm, ax=ax)
+
+        # 设置标题和轴标签
+        ax.set_title("Mean Coefficient of bootstrap model", fontsize=16, fontweight="bold")
+        ax.set_xlabel(
+            "",
+        )
+        ax.set_ylabel("Mean Coefficient", fontsize=14)
+        ax.set_yticks([-min_value / 2, 0, min_value / 2])
+        ax.set_xticks([])
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        # 增加网格线
+        ax.grid(True, which="both", linestyle="--", linewidth=0.5, alpha=0.5)
+
+        texts = [
+            ax.text(
+                idx,
+                row["mean"] + row["error_high"],
+                f"{row['feature']}",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+            for idx, row in plt_data.head(k).iterrows()
+        ] + [
+            ax.text(
+                idx,
+                row["mean"] - row["error_low"],
+                f"{row['feature']}",
+                ha="center",
+                va="top",
+                fontsize=8,
+            )
+            for idx, row in plt_data.tail(k).iterrows()
+        ]
+        adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle="->", lw=0.5))
+                    
+
+        return ax
     def predict(self, data,exclude=None, method="mean"):
         preds = []
 
