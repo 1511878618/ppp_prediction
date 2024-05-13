@@ -197,7 +197,7 @@ option_list = list(
                 help = "Path to the JSON file", metavar = "JSON"),
     make_option(c("-o", "--output"), type = "character", default = "glmnet",
                 help = "Path to the output directory", metavar = "OUTPUT"),
-    make_option(c("--seed"), type = "integer", default = 123,
+    make_option(c("--seed"), type = "integer", default = NULL,
                 help = "Random seed", metavar = "SEED")
 
 )
@@ -215,6 +215,15 @@ seed <- opt$seed
 print(opt)
 json_data <- fromJSON(file=json_file)
 train <- arrow::read_feather(train_file)
+
+# sample 
+set.seed(seed)
+train <- train[sample(nrow(train), replace = T),]
+sprintf("Random seed is set to %d", seed)
+
+
+#
+
 
 test <- NULL
 if (!is.null(test_file)){
@@ -249,7 +258,6 @@ for (each in names(json_data)){
         }
     }
 
-    set.seed(seed)
     current_output_dir <- paste0(output_dir, "/", each)
 
     if (!dir.exists(current_output_dir)) {
