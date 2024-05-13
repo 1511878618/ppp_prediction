@@ -1,6 +1,7 @@
 name: rapids-24.02
 channels:
   - nvidia
+  - bioconda
   - rapidsai
   - conda-forge
 dependencies:
@@ -154,6 +155,7 @@ dependencies:
   - hdf5=1.14.3=nompi_h4f84152_100
   - holoviews=1.18.3=pyhd8ed1ab_0
   - hpack=4.0.0=pyh9f0ad1d_0
+  - htslib=1.19.1=h81da01d_2
   - httpcore=1.0.4=pyhd8ed1ab_0
   - httpx=0.27.0=pyhd8ed1ab_0
   - hyperframe=6.0.1=pyhd8ed1ab_0
@@ -621,6 +623,7 @@ dependencies:
   - svt-av1=2.0.0=h59595ed_0
   - sympy=1.12=pypyh9d50eac_103
   - sysroot_linux-64=2.12=he073ed8_17
+  - tabix=1.11=hdfd78af_0
   - tbb=2021.11.0=h00ab1b0_1
   - tblib=3.0.0=pyhd8ed1ab_0
   - terminado=0.18.1=pyh0d859eb_0
@@ -683,14 +686,19 @@ dependencies:
   - zlib-ng=2.0.7=h0b41bf4_0
   - zstd=1.5.5=hfc55251_0
   - pip:
+      - accelerate==0.29.3
       - adjusttext==1.1.1
       - aiohttp-cors==0.7.0
+      - anndata==0.10.7
       - annotated-types==0.6.0
       - argcomplete==3.3.0
+      - array-api-compat==1.6
       - autograd==1.6.2
       - autograd-gamma==0.5.0
+      - biopython==1.83
       - colorful==0.5.6
       - confidenceinterval==1.0.4
+      - datasets==2.19.0
       - dcurves==1.1.0
       - dill==0.3.8
       - distlib==0.3.8
@@ -711,10 +719,12 @@ dependencies:
       - interface-meta==1.3.0
       - ipywidgets==8.1.2
       - jupyterlab-widgets==3.0.10
+      - kaleido==0.2.1
       - liac-arff==2.5.0
       - lifelines==0.27.8
       - lightning-utilities==0.11.0
       - loguru==0.7.2
+      - loompy==3.0.7
       - markdown==3.5.2
       - matplotlib==3.7.5
       - matplotlib-inline==0.1.3
@@ -727,7 +737,10 @@ dependencies:
       - mkdocs-material-extensions==1.3.1
       - mkdocstrings==0.20.0
       - mkdocstrings-python==1.9.1
+      - multiprocess==0.70.16
+      - natsort==8.4.0
       - numpy==1.26.4
+      - numpy-groupies==0.11.1
       - nvidia-cublas-cu12==12.1.3.1
       - nvidia-cuda-cupti-cu12==12.1.105
       - nvidia-cuda-nvrtc-cu12==12.1.105
@@ -749,10 +762,12 @@ dependencies:
       - pathspec==0.12.1
       - patsy==0.5.6
       - pipx==1.5.0
+      - plotly==5.21.0
       - proto-plus==1.23.0
       - py-spy==0.3.14
       - pyasn1==0.6.0
       - pyasn1-modules==0.4.0
+      - pycirclize==1.4.0
       - pycryptodome==3.20.0
       - pydantic==2.7.0
       - pydantic-core==2.18.1
@@ -779,6 +794,7 @@ dependencies:
       - starlette==0.37.2
       - statannot==0.2.3
       - statsmodels==0.13.5
+      - tenacity==8.2.3
       - tensorboardx==2.6.2.2
       - timm==0.9.16
       - tokenizers==0.15.2
@@ -788,6 +804,7 @@ dependencies:
       - transformers==4.39.3
       - transtab==0.0.5
       - triton==2.2.0
+      - tsnecuda==3.0.1+cu122
       - typing==3.7.4.3
       - tzlocal==5.2
       - userpath==1.9.2
@@ -799,4 +816,5 @@ dependencies:
       - widgetsnbextension==4.0.10
       - wrapt==1.16.0
       - xmltodict==0.13.0
+      - xxhash==3.4.1
 prefix: /home/xutingfeng/miniforge3/envs/rapids-24.02
