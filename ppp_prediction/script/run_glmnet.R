@@ -214,7 +214,7 @@ seed <- opt$seed
 
 print(opt)
 json_data <- fromJSON(file=json_file)
-train <- arrow::read_feather(train_file)[1:10000,]
+train <- arrow::read_feather(train_file)
 
 test <- NULL
 if (!is.null(test_file)){
@@ -306,6 +306,6 @@ for (each in names(json_data)){
             row.names = FALSE
         ) 
     }
-
+    saveRDS(res$cvfit, paste0(current_output_dir, "/res.rds"))
 
 }
