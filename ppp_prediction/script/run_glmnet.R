@@ -100,6 +100,25 @@ sumweights <- function(data, coef, xvar) {
     return(apply(data[, xvar], 1, function(x) sum(x * coef_vector)))
 }
 
+standardize_func <- function(data, xvar = NULL, means = NULL, sds = NULL) {
+  # 计算每列的均值和标准差
+  if (is.null(xvar)) xvar <- colnames(data)
+  if (is.null(means)) means <- colMeans(data[, xvar])
+  if (is.null(sds)) sds <- apply(data[, xvar], 2, sd)
+
+  means <- means[xvar]
+  sds <- sds[xvar]
+
+  data[, xvar] <- data.frame(scale(data[, xvar], center = means, scale = sds))
+  # 标准化数据
+  return (list(
+    data =data,
+    mean = means,
+    std = sds
+  ))
+
+}
+
 glmnet_lasso<-function(
   train,
   xvar,
@@ -114,6 +133,8 @@ glmnet_lasso<-function(
   family = "gaussian",
   type.measure = "deviance",
   coef_choice = "lambda.min",
+  standardize  = TRUE,
+  intercept = FALSE,
   parallel=TRUE
 ){
   # drop na
@@ -123,6 +144,7 @@ glmnet_lasso<-function(
     used_fatures = c(used_fatures, covariate)
     p.fac <- c(p.fac, rep(0, length(covariate)))
   }
+  print(length(p.fac) == length(used_fatures))
 
   if (family == "cox"){
     if (is.null(time)){
@@ -133,6 +155,23 @@ glmnet_lasso<-function(
   else{
     train = train[complete.cases(train[, c(used_fatures, label)]), ]
   }
+
+  if (standardize){
+    standardize <- standardize_func(train, used_fatures)
+    train_mean = standardize$mean
+    train_std = standardize$std
+    train = standardize$data
+
+    if (!is.null(test)) {
+      test = standardize_func(test, used_fatures)$data
+    }
+
+
+  }else{
+    train_mean = NULL
+    train_std = NULL
+  }
+
   print(sprintf("train data size: %d", nrow(train)))
 
   if (family == "cox") {
@@ -149,7 +188,9 @@ glmnet_lasso<-function(
       family = "cox",
       type.measure = "C",
       penalty.factor = p.fac,
-      parallel = parallel
+      parallel = parallel,
+      standardize = F,
+      intercept = intercept
     )
   }
   else{
@@ -163,7 +204,9 @@ glmnet_lasso<-function(
     family = family,
     type.measure = type.measure,
     penalty.factor = p.fac,
-    parallel = parallel
+    parallel = parallel,
+    standardize = F,
+    intercept = intercept
   )
   }
 
@@ -179,10 +222,14 @@ glmnet_lasso<-function(
       cvfit = cvfit.cv,
       coef = coef_,
       train = train,
-      test = test
+      test = test,
+      train_mean = train_mean,
+      train_std = train_std
     )
   )
 }
+
+
 
 
 
