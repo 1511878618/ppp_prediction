@@ -185,7 +185,7 @@ glmnet_lasso<-function(
       as.matrix(train[, used_fatures]),
       as.matrix(train_y),
       alpha = alpha,
-      nfolds = 3,
+      nfolds = cv,
       lambda = lambda,
       trace.it = trace.it,
       family = "cox",
@@ -200,7 +200,7 @@ glmnet_lasso<-function(
     as.matrix(train[, used_fatures]),
     as.matrix(train[, label]),
     alpha = alpha,
-    nfolds = 3,
+    nfolds = cv,
     lambda = lambda,
     trace.it = trace.it,
     family = family,
@@ -266,13 +266,18 @@ json_data <- fromJSON(file=json_file)
 train <- arrow::read_feather(train_file)
 
 # sample 
-set.seed(seed)
-train <- train[sample(nrow(train), replace = T),]
-sprintf("Random seed is set to %d", seed)
+if (!is.null(seed)){
 
-train <- train %>%distinct(eid, .keep_all = T)
-sprintf("train data size: %d", nrow(train))
-#
+  set.seed(seed)
+  train <- train[sample(nrow(train), replace = T),]
+  sprintf("Random seed is set to %d", seed)
+
+  train <- train %>%distinct(eid, .keep_all = T)
+  sprintf("train data size: %d", nrow(train))
+  #
+}else{
+  sprintf("train data size: %d", nrow(train))
+}
 
 
 test <- NULL
