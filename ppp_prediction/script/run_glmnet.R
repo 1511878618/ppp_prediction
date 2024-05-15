@@ -11,7 +11,7 @@
 options(repos = c(CRAN = "https://cloud.r-project.org/"))
 
 # 检查并安装必要的包
-packages <- c("glmnet", "survival", "ggplot2", "export", "svglite", 'rjson', 'optparse', 'arrow')
+packages <- c("glmnet", "survival", "ggplot2", "export", "svglite", 'rjson', 'optparse', 'arrow', "dplyr")
 
 for (pkg in packages) {
   if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
@@ -30,12 +30,25 @@ suppressPackageStartupMessages({
   library(svglite)
   library(rjson)
   library(arrow)
+  library(dplyr)
 library(optparse)
 
 })
 
 
 out_img <- function(x, filename, pic_width = 5, pic_height = 7) {
+  tryCatch({
+    graph2png(
+      x = x,
+      file = paste0(filename, ".png"),
+      width = pic_width,
+      height = pic_height
+    )
+  }, error = function(e) {
+    cat("Failed to create PNG: ", e$message, "\n")
+  })
+
+
   tryCatch({
     graph2eps(
       x = x,
@@ -80,16 +93,7 @@ out_img <- function(x, filename, pic_width = 5, pic_height = 7) {
     cat("Failed to create PPTX: ", e$message, "\n")
   })
 
-  tryCatch({
-    graph2png(
-      x = x,
-      file = paste0(filename, ".png"),
-      width = pic_width,
-      height = pic_height
-    )
-  }, error = function(e) {
-    cat("Failed to create PNG: ", e$message, "\n")
-  })
+
 }
 
 sumweights <- function(data, coef, xvar) {
@@ -151,8 +155,7 @@ glmnet_lasso<-function(
       stop("time is required for cox model")
     }
     train = train[complete.cases(train[, c(used_fatures, label, time)]), ]
-  }
-  else{
+  } else{
     train = train[complete.cases(train[, c(used_fatures, label)]), ]
   }
 
@@ -182,7 +185,7 @@ glmnet_lasso<-function(
       as.matrix(train[, used_fatures]),
       as.matrix(train_y),
       alpha = alpha,
-      nfolds = cv,
+      nfolds = 3,
       lambda = lambda,
       trace.it = trace.it,
       family = "cox",
@@ -192,13 +195,12 @@ glmnet_lasso<-function(
       standardize = F,
       intercept = intercept
     )
-  }
-  else{
+  }else{
   cvfit.cv = cv.glmnet(
     as.matrix(train[, used_fatures]),
     as.matrix(train[, label]),
     alpha = alpha,
-    nfolds = cv,
+    nfolds = 3,
     lambda = lambda,
     trace.it = trace.it,
     family = family,
@@ -268,7 +270,8 @@ set.seed(seed)
 train <- train[sample(nrow(train), replace = T),]
 sprintf("Random seed is set to %d", seed)
 
-
+train <- train %>%distinct(eid, .keep_all = T)
+sprintf("train data size: %d", nrow(train))
 #
 
 
@@ -299,17 +302,16 @@ for (each in names(json_data)){
     for (each_param in names(glm_params)){
         if (each_param %in% names(each_json)){
             glm_params[[each_param]] = each_json[[each_param]]
-        }
-        else{
+        }else{
             sprintf("Warning: %s not in json", each_param)
         }
     }
 
     current_output_dir <- paste0(output_dir, "/", each)
-
     if (!dir.exists(current_output_dir)) {
       dir.create(current_output_dir, recursive = TRUE)
     }
+    saveRDS(glm_params, paste0(current_output_dir, "/glm_params.rds"))
 
     res <- glmnet_lasso(train = train, 
     xvar = glm_params$feature,
@@ -320,11 +322,16 @@ for (each in names(json_data)){
     cv = glm_params$cv,
     lambda = glm_params$lambda,
     family = glm_params$family,
-    type.measure = glm_params$type_measure)
+    type.measure = glm_params$type_measure,
+    standardize = TRUE,
+    trace.it = 1,
+     coef_choice = "lambda.min"
+    )
 
     # plot 
+    fig_cvfit <-plot(res$cvfit)
     out_img(
-        plot(res$cvfit),
+        fig_cvfit,
         paste0(current_output_dir, "/cvfit")
     )
     # write csv 
@@ -339,8 +346,7 @@ for (each in names(json_data)){
     # save score
     if ("eid" %in% colnames(train)){
         train_save_cols = c("eid", "pred")
-    }
-    else{
+    }else{
         train_save_cols = c("pred")
     }
     write.csv(
@@ -351,8 +357,7 @@ for (each in names(json_data)){
     if (!is.null(test)){
         if ("eid" %in% colnames(test)){
             test_save_cols = c("eid", "pred")
-        }
-        else{
+        }else{
             test_save_cols = c("pred")
         }
         write.csv(
@@ -361,6 +366,18 @@ for (each in names(json_data)){
             row.names = FALSE
         ) 
     }
-    saveRDS(res$cvfit, paste0(current_output_dir, "/res.rds"))
+    standardize_info <- list(
+        mean = res$train_mean,
+        std = res$train_std
+    )
+
+    saveRDS(
+          list(
+      cvfit = res$cvfit,
+      coef = res$coef,
+      train_mean = res$train_mean,
+      train_std = res$train_std
+    )
+      , paste0(current_output_dir, "/res.rds"))
 
 }
