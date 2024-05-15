@@ -329,11 +329,11 @@ for (each in names(json_data)){
     )
 
     # plot 
-    fig_cvfit <-plot(res$cvfit)
-    out_img(
-        fig_cvfit,
-        paste0(current_output_dir, "/cvfit")
-    )
+    # fig_cvfit <-plot(res$cvfit)
+    # out_img(
+    #     fig_cvfit,
+    #     paste0(current_output_dir, "/cvfit")
+    # )
     # write csv 
     coef_ <- res$coef[glm_params$feature,]
     coef_df <- as.data.frame(coef_) 
