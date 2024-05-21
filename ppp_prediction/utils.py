@@ -16,6 +16,24 @@ except:
         sys.exit(1)
 
 import os 
+
+
+def load_data(x):
+    # if isinstance(x, Path.)
+    x = str(x)
+    if ".csv" in x:
+        return pd.read_csv(x)
+    elif x.endswith(".feather"):
+        return pd.read_feather(x)
+    elif x.endswith(".pkl"):
+        return pd.read_pickle(x)
+    elif ".tsv" in x:
+        return pd.read_csv(x, sep="\t")
+    else:
+        raise ValueError(f"File format: {x} not supported")
+
+
+
 class HiddenPrints:
     def __enter__(self):
         self._original_stdout = sys.stdout

@@ -345,6 +345,12 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
         assert (columns_of_query[0] == columns_of_cond[0]), "query and key and  cond should have the same first columns"
     merge_on = columns_of_query[0]
 
+    # set merge_on as str 
+    query_df[merge_on] = query_df[merge_on].astype(str)
+    key_df[merge_on] = key_df[merge_on].astype(str)
+    if cond_df is not None:
+        cond_df[merge_on] = cond_df[merge_on].astype(str)
+
     # drop merge_on
     columns_of_query = columns_of_query[columns_of_query != merge_on]
     columns_of_key = columns_of_key[columns_of_key != merge_on]

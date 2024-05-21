@@ -175,7 +175,7 @@ glmnet_lasso<-function(
     train_std = NULL
   }
 
-  print(sprintf("train data size: %d", nrow(train)))
+  print(sprintf("train data size: %d with featuers %d", nrow(train), length(used_fatures)))
 
   if (family == "cox") {
     train_y = train[c(label, time)]

@@ -615,9 +615,12 @@ def cal_corr_v2(
                     result.update({"N": used_df.shape[0]})
                     res_dict.update(result)
             return pd.Series(res_dict)
-        except:
-            print(f"Error for x={x} and y={y} and model_type={model_type}")
+        except Exception as e:
+            print(f"Error for x={x} and y={y} and model_type={model_type} with {e}")
+
+            
             return pd.Series({})
+
     else:
         raise ValueError("x and y  and model_type should be all str or list of str," + f"but is {type(x)}, {type(y)}, {type(model_type)}"+"not support for other type")
 
