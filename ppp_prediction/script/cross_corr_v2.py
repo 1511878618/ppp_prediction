@@ -368,6 +368,29 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
     print(f"query_col have {len(query_cols)} cols and first 5 cols are {query_cols[:5]}\nkey_col have {len(key_cols)} cols and first 5 cols are {key_cols[:5]}\ncond_col have {len(cond_cols)} cols and first 5 cols are {cond_cols[:5]}\nTotal shape is {main_df.shape}")
 
 
+    for col in query_cols:
+        try:
+            main_df[col] = main_df[col].astype(float)
+        except:
+            main_df.drop(col, axis=1, inplace=True)
+            query_cols.remove(col)
+
+    for col in key_cols:
+        try:
+            main_df[col] = main_df[col].astype(float)
+        except:
+            main_df.drop(col, axis=1, inplace=True)
+            key_cols.remove(col)
+    if cond_cols:
+        for col in cond_cols:
+            try:
+                main_df[col] = main_df[col].astype(float)
+            except:
+                main_df.drop(col, axis=1, inplace=True)
+                cond_cols.remove(col)
+
+
+
     return main_df, {"query_cols":query_cols, "key_cols":key_cols, "cond_cols":cond_cols}
 
 
