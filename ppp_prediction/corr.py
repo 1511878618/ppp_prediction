@@ -784,6 +784,7 @@ def cal_corr_v2(
                 "var": x,
                 "exposure": y,
                 "model": model_type,
+                
             })
 
     else:
