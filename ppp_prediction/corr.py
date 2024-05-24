@@ -685,6 +685,20 @@ def cal_corr_v2(
                 Y = cal_residual(used_df, x=cofounder, y=y)[f"{y}_residual"]
                 X = sm.add_constant(used_df[[x]])
 
+
+            if model_type == "auto":
+                if not adjust:
+                    if len(used_df[y].unique()) <= 2:
+                        model_type = "logistic"
+                    else:
+                        model_type = "glm"
+                                        
+                    print(f"auto model selection for x={x} and y={y} with model_type={model_type}")
+                else:
+                    raise ValueError("auto model selection not support for adjust=True")
+    
+  
+
             if model_type == "logistic" and adjust:
                 raise ValueError(
                     "adjust not support for logistic model, so use ols or glm instead"
