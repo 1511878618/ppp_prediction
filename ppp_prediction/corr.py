@@ -780,7 +780,11 @@ def cal_corr_v2(
             print(f"Error for x={x} and y={y} and model_type={model_type} with {str(e)[:100]}")
 
             
-            return pd.Series({})
+            return pd.Series({
+                "var": x,
+                "exposure": y,
+                "model": model_type,
+            })
 
     else:
         raise ValueError("x and y  and model_type should be all str or list of str," + f"but is {type(x)}, {type(y)}, {type(model_type)}"+"not support for other type")
