@@ -306,7 +306,7 @@ def getParser():
     parser.add_argument("--cond", dest="cond_path", help="confounding file path, should be as same as q and k and used with --method linear or logistic", required=False)
     parser.add_argument("--cond_cols", dest= "cond_cols", help="confounding cols, should be in cond_path files", required=False, nargs="+", default=[])
 
-    parser.add_argument("-m", "--method", dest="method", default="pearson", required=False, choices=["glm", "ols", "logistic"]) # may supported for multiple method
+    parser.add_argument("-m", "--method", dest="method", default="auto", required=False, choices=["glm", "ols", "logistic", "auto"]) # may supported for multiple method
     # parser.add_argument("--lowmem", action="store_true", dest="lowmem", help="low memory for cal")
     parser.add_argument("--norm_x", dest="norm_x",default=None, help="norm x before cal corrs, supported int or zscore", required=False, choices=["int", "zscore", None])
     parser.add_argument("--verbose", action="store_true", dest="verbose", help="print verbose output")
