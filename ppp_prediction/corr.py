@@ -771,6 +771,8 @@ def cal_corr_v2(
                 }
                 result.update(case_control_metrics)
                 result.update({"N": used_df.shape[0]})
+            else:
+                result.update({"N": used_df.shape[0]})
             
             res_series = pd.Series(result)
             return res_series
