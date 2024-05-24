@@ -459,7 +459,146 @@ def cal_corr(
     return result
 
 
+import pandas as pd
+from sklearn.metrics import (
+    r2_score,
+    explained_variance_score,
+    roc_auc_score,
+    accuracy_score,
+    f1_score,
+    roc_curve,
+    precision_recall_curve,
+    auc,
+)
+from scipy.stats import pearsonr, spearmanr
+import statsmodels.api as sm
+from typing import Union, overload, Tuple, List
+from tqdm.rich import tqdm
+import numpy as np
+from confidenceinterval.bootstrap import bootstrap_ci
+import confidenceinterval as ci
+from statsmodels.stats.multitest import multipletests
+import numpy as np
+import statsmodels.stats.multitest as smm
+from pandas import DataFrame
+from itertools import product
+import statsmodels.api as sm
+from typing import Union, overload, Tuple, List
+from sklearn.metrics import (
+    r2_score,
+    explained_variance_score,
+    roc_auc_score,
+    accuracy_score,
+)
+from scipy.stats import pearsonr, spearmanr
+import scipy.stats as ss
 
+
+def cal_corr_multivar_v2(
+    df: DataFrame,
+    x: Union[str, List[str]],
+    y: str,
+    cofounder: Union[str, List[str]] = None,
+    adjust: bool = False,
+    norm_x=None,
+    model_type: Union[str, List[str]] = "glm",
+    family=sm.families.Gaussian(),
+    ci= False,
+    n_resamples = 100,
+    verbose=False,
+):
+    """
+    Calculate the correlation between x and y variables in the input DataFrame.
+
+    if cofounder will add to x, if adjust is True, will adjust for cofounder: res of (y~cofounder) and res ~ x
+
+    """
+
+    if cofounder is not None:
+        cofounder = [cofounder] if isinstance(cofounder, str) else cofounder
+    else:
+        cofounder = []
+
+    if isinstance(x, str):
+        x = [x]
+    used_df = df[x + [y] + cofounder].copy().dropna(how="any")
+
+    if norm_x == "zscore":
+        print(f"normalizing x={x} by zscore")
+        used_df[x] = (used_df[x] - used_df[x].mean()) / used_df[x].std()
+    elif norm_x == "int":
+        print(f"normalizing x={x} by rank inverse normal transformation")
+        used_df[x] = rank_INT(used_df[x])
+    else:
+        pass
+
+    X = sm.add_constant(used_df[x + cofounder])
+    Y = used_df[y]
+
+    if adjust:
+        Y = cal_residual(used_df, x=cofounder, y=y)[f"{y}_residual"]
+        X = sm.add_constant(used_df[[x]])
+
+    if model_type == "logistic" and adjust:
+        raise ValueError(
+            "adjust not support for logistic model, so use ols or glm instead"
+        )
+
+    if model_type == "glm":
+        model = sm.GLM(Y, X, family=family).fit()
+        y_pred = model.predict(X)
+        metrics = cal_qt_metrics(Y, y_pred)
+
+        # metrics = {"Persudo_R2": model.pseudo_rsquared()}
+        # metrics.update(cal_qt_metrics(Y, y_pred))
+    elif model_type == "ols":
+        model = sm.OLS(Y, X).fit()
+        y_pred = model.predict(X)
+
+        # metrics = {"Persudo_R2": model.pseudo_rsquared()}
+        # metrics.update(cal_qt_metrics(Y, y_pred))
+        metrics = cal_qt_metrics(Y, y_pred)
+    elif model_type == "logistic":
+        model = sm.Logit(Y, X).fit()
+        y_pred = model.predict(X)
+        if ci:
+            metrics = cal_binary_metrics_bootstrap(Y, y_pred, ci_kwargs={"n_resamples": n_resamples})
+        else:   
+            metrics = cal_binary_metrics(Y, y_pred)
+    else:
+        raise ValueError(f"model_type {model_type} not supported")
+
+    model_res = (
+        model.summary2()
+        .tables[1]
+        .rename(
+            columns={
+                "Coef.": "coef",
+                "Std.Err.": "std",
+                "z": "z",
+                "P>|z|": "pvalue",
+                "[0.025": "lower_ci",
+                "0.975]": "upper_ci",
+            }
+        )
+    )
+    model_res.reset_index(drop=False, inplace=True, names="var")
+    if model_type == "logistic":
+        model_res["OR"] = np.exp(model_res["coef"])
+        model_res["OR_UCI"] = np.exp(model_res["upper_ci"])
+        model_res["OR_LCI"] = np.exp(model_res["lower_ci"])
+
+    if len(used_df[y].unique()) <= 2:
+        model_res["n_case"] = used_df[y].sum()
+        model_res["n_control"] = used_df.shape[0] - used_df[y].sum()
+    else:
+        model_res["N"] = used_df.shape[0]
+    
+    for k, v in metrics.items():
+        model_res[k] = v
+
+    return model_res.iloc[1:, :], metrics  # drop intercept
+    
 def cal_corr_v2(
         df:DataFrame,
         x:Union[str, List[str]],
@@ -467,7 +606,7 @@ def cal_corr_v2(
         cofounder:Union[str, List[str]]=None,
         adjust:bool=True,
         norm_x=None,
-        model_type:Union[str, List[str]]="linear",
+        model_type:Union[str, List[str]]="glm",
         threads:int=4,
         family=sm.families.Gaussian(),
         verbose = False,
@@ -481,10 +620,11 @@ def cal_corr_v2(
     - y (Union[str, List[str]]): The y variable(s) for the correlation calculation.
     - cofounder (Union[str, List[str]], optional): The cofounder variable(s) to adjust for in the correlation calculation. Default is None.
     - adjust (bool, optional): Whether to adjust the correlation for cofounders. Default is True.
-    - model_type (Union[str, List[str]], optional): The type of model to use for the correlation calculation. Default is "linear".
+    - model_type (Union[str, List[str]], optional): The type of model to use for the correlation calculation. Default is "glm", ols or logistic is ok .
     - threads (int, optional): The number of threads to use for parallel computation. Default is 4.
     - family (object, optional): The family object specifying the distribution of the dependent variable. Default is sm.families.Gaussian().
     - verbose (bool, optional): Whether to print verbose output. Default is False.
+    - norm_x (str, optional): The method to normalize x, default is None, which means no normalization. Other options are "zscore" and "int" for rank inverse normal transformation.
 
     Returns:
     - DataFrame: The correlation results.
@@ -494,9 +634,15 @@ def cal_corr_v2(
 
     """
 
-    if isinstance(x, list) and isinstance(y, list):
+    if isinstance(x, list) or isinstance(y, list):
         df = df.copy()  # avoid inplace change
         model_type = [model_type] if isinstance(model_type, str) else model_type
+
+        if isinstance(x, str):
+            x = [x]
+        if isinstance(y, str):
+            y = [y]
+            
         x_y_model_combination = list(product(x, y, model_type))
         print(f"total {len(x_y_model_combination)} combination of  to cal by threads {threads}")
         if threads ==1:
@@ -512,7 +658,10 @@ def cal_corr_v2(
 
     elif isinstance(x, str) and isinstance(y, str) and isinstance(model_type, str):
         try:
-            cofounder = [cofounder] if isinstance(cofounder, str) else cofounder
+            if cofounder is not None:
+                cofounder = [cofounder] if isinstance(cofounder, str) else cofounder
+            else:
+                cofounder = []
             if threads >1:
                 print(f"threads is {threads} and x is {x} and y is {y}, which is str, so don't supported for multi threads")
 
@@ -532,7 +681,7 @@ def cal_corr_v2(
             X = sm.add_constant(used_df[[x] + cofounder])
             Y = used_df[y]
             X_Y_dict={"":(X, Y)}
-            if adjust:
+            if adjust and len(cofounder) > 0:
                 Y_adjust = cal_residual(used_df, x=cofounder, y=y)[f"{y}_residual"]
                 X_adjust = sm.add_constant(used_df[[x]])
 
@@ -573,8 +722,8 @@ def cal_corr_v2(
                             "Std.Err.": "std",
                             "z": "z",
                             "P>|z|": "pvalue",
-                            "[0.025": "upper_ci",
-                            "0.975]": "lower_ci",
+                            "[0.025": "lower_ci",
+                            "0.975]": "upper_ci",
                         }
                     )
                     .loc[x]
@@ -593,7 +742,14 @@ def cal_corr_v2(
                     "upper": model_res["upper_ci"],
                     "lower": model_res["lower_ci"],
                 }
-                result.update(metrics)
+                if model_type == "logistic":
+                    result['OR'] = np.exp(result['coef'])
+                    result['OR_UCI'] = np.exp(result['upper'])
+                    result['OR_LCI'] = np.exp(result['lower'])
+
+
+                if len(cofounder) <=0:
+                    result.update(metrics)
 
                 if k == "adjust":  # only update coef, std, upper and lower
                     to_update_for_adjust_metrics_keys = [
@@ -719,8 +875,10 @@ def cal_corr_multivar(
         "r2_score": r2_score(y_true, y_pred),
     }
     metrics.update(additional_metrics)
-
-    return model, result_df, metrics, used_df
+    if return_all:
+        return model, result_df, metrics, used_df
+    else:
+        return result_df
 
 import matplotlib.pyplot as plt
 from skmisc.loess import loess
