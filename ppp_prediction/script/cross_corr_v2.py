@@ -386,6 +386,7 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
             try:
                 main_df[col] = main_df[col].astype(float)
             except:
+                print
                 main_df.drop(col, axis=1, inplace=True)
                 cond_cols.remove(col)
 
@@ -446,6 +447,8 @@ if __name__ == "__main__":
 
     if Path(output).parent.exists() is False:
         Path(output).parent.mkdir(parents=True, exist_ok=True)
+
+    corr_results_df.dropna(how="all", inplace=True)
     if output.endswith(".gz"):
         corr_results_df.to_csv(output, compression="gzip", index=False, na_rep="NA", sep="\t")
     else:
