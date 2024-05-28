@@ -747,6 +747,7 @@ def cal_corr_v2(
                 "exposure": y,
                 "model": model_type,
                 "adjust_cov":1 if adjust else 0,
+                "norm_x": norm_x,
                 "pvalue": model.pvalues[x],
                 "coef": model.params[x],
                 "std": model_res["std"],
@@ -786,6 +787,8 @@ def cal_corr_v2(
                 "var": x,
                 "exposure": y,
                 "model": model_type,
+                "adjust_cov":1 if adjust else 0,
+                "norm_x": norm_x,
                 
             })
 
@@ -910,6 +913,8 @@ def plot_corrs(
     model_type=None,
 ):
     # 如果没有传入 ax，就创建一个新的
+    if line_kw is None:
+        line_kw = {}
     if ax is None:
         fig, ax = plt.subplots()
     title = ""
