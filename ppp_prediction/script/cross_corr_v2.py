@@ -360,12 +360,44 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
     key_cols = columns_of_key[columns_of_key.str.contains('|'.join(key_cols))].tolist()
     cond_cols = columns_of_cond[columns_of_cond.str.contains('|'.join(cond_cols))].tolist() if columns_of_cond is not None else None
 
+
     # TODO: check if query_cols, key_cols, cond_cols are empty or some col are same
+
+    # keep only the cols in query_cols, key_cols, cond_cols
+    query_df = query_df[[merge_on] + query_cols]
+    key_df = key_df[[merge_on] + key_cols]
+    if cond_df is not None:
+        cond_df = cond_df[[merge_on] + cond_cols]
+
+    #  query col > key col > cond_cols ; to keep query col not in key col and cond col ; key col not in cond col
+    for q_col in query_cols:
+        if q_col in key_cols:
+            print(f"query col {q_col} is in key col, will drop it")
+            key_cols.remove(q_col)
+        if len(cond_cols) > 0:
+            if q_col in cond_cols:
+                raise ValueError(f"query col {q_col} is in cond col, should drop it or avoid this happen!!!!")
+                
+    for k_col in key_cols:
+        if len(cond_cols) > 0:
+            if k_col in cond_cols:
+                raise ValueError(f"key col {k_col} is in cond col, should drop it or avoid this happen!!!!")
+
+                
+                
+    # merge 
 
     main_df = query_df.merge(key_df, on = merge_on, how="inner")
     if cond_df is not None:
         main_df = main_df.merge(cond_df, on = merge_on, how="inner")
-    print(f"query_col have {len(query_cols)} cols and first 5 cols are {query_cols[:5]}\nkey_col have {len(key_cols)} cols and first 5 cols are {key_cols[:5]}\ncond_col have {len(cond_cols)} cols and first 5 cols are {cond_cols[:5]}\nTotal shape is {main_df.shape}")
+    
+    msg = f"query_col have {len(query_cols)} cols and first 5 cols are {query_cols[:5]}\nkey_col have {len(key_cols)} cols and first 5 cols are {key_cols[:5]}\n" 
+
+    if len(cond_cols) == 0:
+        msg += f"cond_col have {len(cond_cols)} cols and first 5 cols are {cond_cols[:5]}\n"
+
+    msg += f"Total shape is {main_df.shape}"
+    print(msg)
 
 
     for col in query_cols:

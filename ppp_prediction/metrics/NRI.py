@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.metrics import roc_curve
 from typing import Union, Optional, Tuple
 from .ci import bootstrap_ci
-from .utils import find_best_cutoff
+from .utils import find_best_cutoff,cal_pvalue
 import pandas as pd
 
 def cal_NRI(y_true: Union[np.ndarray, pd.Series, list], y_ref: Union[np.ndarray, pd.Series, list], y_new: Union[np.ndarray, pd.Series, list], only_nri: bool = True) -> Union[float, Tuple[float, pd.DataFrame, pd.DataFrame]]:
@@ -51,9 +51,9 @@ def NRI(
     y_new: Union[np.ndarray, pd.Series, list],
     y_ref_thresholds: Optional[float] = None,
     y_new_thresholds: Optional[float] = None,
-    ci: bool = False,
+    ci: bool = True,
     n_resamples: int = 100,
-    only_nri: bool = True,
+    # only_nri: bool = True,
 ) -> Union[float, Tuple[float, float], Tuple[float, pd.DataFrame, pd.DataFrame], Tuple[float, pd.DataFrame, pd.DataFrame, float]]:
 
 
@@ -117,6 +117,13 @@ def NRI(
     nri, case_confusion_matrix, control_confusion_matrix = cal_NRI(
         y_true, y_ref, y_new, only_nri=False
     )
+    res = {
+        "NRI": nri,
+        "Case Confusion Matrix": case_confusion_matrix,
+        "Control Confusion Matrix": control_confusion_matrix,
+    }
+ 
+
     if ci and n_resamples:
         nri, nri_ci = bootstrap_ci(
             metric=lambda y_true, y_ref, y_new: cal_NRI(
@@ -127,11 +134,15 @@ def NRI(
             y_new=y_new,
             n_resamples=n_resamples,
         )
-    if only_nri and not ci:
-        return nri
-    elif only_nri and ci:
-        return nri, nri_ci
-    elif not only_nri and ci:
-        return nri, case_confusion_matrix, control_confusion_matrix, nri_ci
-    else:
-        return nri, case_confusion_matrix, control_confusion_matrix
+        # pvalue 
+        nri_se = (nri_ci[1] - nri_ci[0]) / 3.92
+        nri_pvalue = cal_pvalue(nri, nri_se)
+        update_dict = {
+            "NRI_UCI": nri_ci[1],
+            "NRI_LCI": nri_ci[0],
+            "NRI (95% CI)": f"{nri:.2f} ({nri_ci[0]:2f}, {nri_ci[1]:.2f})",
+            "NRI P-value": nri_pvalue,
+            "NRI_SE": nri_se,
+        }
+        res.update(update_dict)
+    return res 
