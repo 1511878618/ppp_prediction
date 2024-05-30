@@ -650,9 +650,9 @@ class LassoTrainTFPipline(object):
         ).reset_index(drop=True)
 
         tmp_train_feather_dir = model_output_folder / "train.feather"
-        # ##################### rm ##################
-        # train_feather = train_feather.head(10000)
-        # ##################### rm ##################
+        ##################### rm ##################
+        train_feather = train_feather.head(10000)
+        ##################### rm ##################
         print(f"Train data shape: {train_feather.shape}")
 
         train_feather.to_feather(tmp_train_feather_dir)
@@ -800,14 +800,14 @@ class LassoTrainTFPipline(object):
             bootstrap_test_score = load_data(
                 bootstrap_output_folder / "test_score.feather"
             )
-            bootstrap_test_score["mean"] = bootstrap_test_score.mean(axis=1)
+            bootstrap_test_score["mean"] = bootstrap_test_score.iloc[:, 1:].mean(axis=1)
             bootstrap_test_score = bootstrap_test_score[["eid", "mean"]]
             score_dict["mean"] = bootstrap_test_score
 
             bootstrap_train_score = load_data(
                 bootstrap_output_folder / "train_score.feather"
             )
-            bootstrap_train_score["mean"] = bootstrap_train_score.mean(axis=1)
+            bootstrap_train_score["mean"] = bootstrap_train_score.iloc[:, 1:].mean(axis=1)
             bootstrap_train_score = bootstrap_train_score[["eid", "mean"]]
             train_score_dict["mean"] = bootstrap_train_score
 
@@ -857,10 +857,20 @@ class LassoTrainTFPipline(object):
                 model_output_folder / "best_model_score_on_test.csv", index=False
             )
             
-            train_score[best_model].to_csv(
+            train_score_dict[best_model].to_csv(
                 model_output_folder / "best_model_score_on_train.csv", index=False
             )
+            # save all score 
+            from functools import reduce
+            all_score_test = reduce(
+                lambda x, y: x.merge(y, on="eid", how="outer"), score_dict.values()
+            )
+            all_score_test.to_csv(model_output_folder / "all_score_test.csv", index=False)
 
+            all_score_train = reduce(
+                lambda x, y: x.merge(y, on="eid", how="outer"), train_score_dict.values()
+            )
+            all_score_train.to_csv(model_output_folder / "all_score_train.csv", index=False)
 
             print(f"Finished!")
         else:
