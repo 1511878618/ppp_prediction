@@ -43,6 +43,9 @@ def getParser():
     parser.add_argument(
         "--out_dir", type=str, help="output directory", required=True, default="./DiseasePredictionOutput"
     )
+    parser.add_argument(
+        "--n_jobs", type=int, help="number of jobs", required=False, default=4
+    )
 
 
 
@@ -56,7 +59,7 @@ if __name__ == "__main__":
     json_file = args.json
     data_dir = args.data_dir_prefix
     out_dir = args.out_dir
-
+    n_jobs = args.n_jobs
     if not Path(out_dir).exists():
         Path(out_dir).mkdir(parents=True)
 
@@ -170,6 +173,7 @@ if __name__ == "__main__":
             ).run(
                 outputFolder=f"{out_dir}/{tgtconfig.name}",
                 n_bootstrap=mmconfig.get("n_bootstrap", None),
+                n_jobs = n_jobs
             )
         else:
             raise ValueError(f"Model type {model_type} not supported, only support lasso")
