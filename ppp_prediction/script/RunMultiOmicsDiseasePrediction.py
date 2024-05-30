@@ -71,8 +71,8 @@ if __name__ == "__main__":
         
 
     # set omics data path
-    for key in params_json['omics_data'].keys():
-        params_json['omics_data'][key]['path'] = Path(data_dir) / params_json['omics_data'][key]['path']
+    for key in params_json['omicsData'].keys():
+        params_json['omicsData'][key]['path'] = Path(data_dir) / params_json['omicsData'][key]['path']
     # set heldOutData path
     params_json['heldOutData']['path'] = Path(data_dir) / params_json['heldOutData']['path']
 
