@@ -54,7 +54,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     json_file = args.json
-    data_dir = args.data_dir
+    data_dir = args.data_dir_prefix
     out_dir = args.out_dir
 
     if not Path(out_dir).exists():
