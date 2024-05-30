@@ -731,6 +731,10 @@ class LassoTrainTFPipline(object):
             test_score.reset_index(drop=False).to_feather(
                 bootstrap_output_folder / "test_score.feather"
             )
+            train_score = res[modelname]["train_score"]
+            train_score.reset_index(drop=False).to_feather(
+                bootstrap_output_folder / "train_score.feather"
+            )
 
             ## plot
             fig = plt.figure(figsize=(15, 10))
@@ -777,12 +781,22 @@ class LassoTrainTFPipline(object):
 
             # compare them
             score_dict = {}
+            train_score_dict = {}
+
+            # for single 
             single_test_score = load_data(
                 single_lasso_output_folder / modelname / "test_score.csv"
             )
             single_test_score.columns = ["eid", "single"]
             score_dict["single"] = single_test_score
 
+            single_train_score = load_data(
+                single_lasso_output_folder / modelname / "train_score.csv"
+            )
+            single_train_score.columns = ["eid", "single"]
+            train_score_dict["single"] = single_train_score
+
+            # bootstrap
             bootstrap_test_score = load_data(
                 bootstrap_output_folder / "test_score.feather"
             )
@@ -790,12 +804,28 @@ class LassoTrainTFPipline(object):
             bootstrap_test_score = bootstrap_test_score[["eid", "mean"]]
             score_dict["mean"] = bootstrap_test_score
 
+            bootstrap_train_score = load_data(
+                bootstrap_output_folder / "train_score.feather"
+            )
+            bootstrap_train_score["mean"] = bootstrap_train_score.mean(axis=1)
+            bootstrap_train_score = bootstrap_train_score[["eid", "mean"]]
+            train_score_dict["mean"] = bootstrap_train_score
+
+
+            # non_zero 
             non_zero_features_test_score = load_data(
                 non_zero_features_output_folder / modelname / "test_score.csv"
             )
             non_zero_features_test_score.columns = ["eid", "non_zero_features"]
             score_dict["non_zero_features"] = non_zero_features_test_score
 
+            non_zero_features_train_score = load_data(
+                non_zero_features_output_folder / modelname / "train_score.csv"
+            )
+            non_zero_features_train_score.columns = ["eid", "non_zero_features"]
+            train_score_dict["non_zero_features"] = non_zero_features_train_score
+
+            # compare
             to_compare_df = (
                 test_feather[["eid", label]]
                 .merge(single_test_score, on="eid", how="inner")
@@ -824,15 +854,25 @@ class LassoTrainTFPipline(object):
             best_model = to_compare_metrics.index[0]
             best_model_score = score_dict[best_model]
             best_model_score.to_csv(
-                model_output_folder / "best_model_score.csv", index=False
+                model_output_folder / "best_model_score_on_test.csv", index=False
             )
+            
+            train_score[best_model].to_csv(
+                model_output_folder / "best_model_score_on_train.csv", index=False
+            )
+
 
             print(f"Finished!")
         else:
             shutil.copy(
                 single_lasso_output_folder / modelname / "test_score.csv",
-                model_output_folder / "best_model_score.csv",
+                model_output_folder / "best_model_score_on_test.csv",
             )
+            shutil.copy(
+                single_lasso_output_folder / modelname / "train_score.csv",
+                model_output_folder / "best_model_score_on_train.csv",
+            )
+
             return
 
 
