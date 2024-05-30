@@ -62,6 +62,8 @@ if __name__ == "__main__":
     n_jobs = args.n_jobs
     if not Path(out_dir).exists():
         Path(out_dir).mkdir(parents=True)
+    
+
 
     import json
     with open(json_file, 'r') as f:
@@ -118,7 +120,6 @@ if __name__ == "__main__":
             print(f"Skipping {k}")
 
     dist_df = check_disease_dist(Config)
-    dist_df.to_csv(out_dir + "/disease_dist.csv", index=False)
 
     # check features
     for mconfig in Config["modelConfig"].values():
@@ -154,6 +155,10 @@ if __name__ == "__main__":
     tgtconfig = Config["diseaseData"]
     phenoconfig = Config["phenosData"]
     testconfig = Config["heldOutData"]
+
+    outputFolder = f"{out_dir}/{tgtconfig.name}"
+    dist_df.to_csv(outputFolder + "/disease_dist.csv", index=False)
+
     for omics in Config["omicsData"].keys():
         assert omics in Config["modelConfig"].keys(), f"{omics} not in model config"
         mmconfig = Config["modelConfig"][omics]
@@ -171,7 +176,7 @@ if __name__ == "__main__":
                 phenoconfig=phenoconfig,
                 testdataconfig=testconfig,
             ).run(
-                outputFolder=f"{out_dir}/{tgtconfig.name}",
+                outputFolder=outputFolder,
                 n_bootstrap=mmconfig.get("n_bootstrap", None),
                 n_jobs = n_jobs
             )
