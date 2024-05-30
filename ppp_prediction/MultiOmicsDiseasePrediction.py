@@ -6,6 +6,20 @@ import json
 import subprocess
 import shutil
 import matplotlib.gridspec as gridspec
+import pandas as pd
+
+from pathlib import Path
+
+pd.set_option("display.max_columns", None)
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+try:
+    sci_palettes.register_cmap()
+except:
+    pass
+
+
 
 
 class DataConfig(object):
@@ -509,9 +523,9 @@ def load_glmnet_bootstrap(model_dir):
 
     model_dir = Path(model_dir)
 
-    coef_df_name = "coef_df.csv"
-    train_score = "train_score.csv"
-    test_score = "test_score.csv"
+    # coef_df_name = "coef_df.csv"
+    # train_score = "train_score.csv"
+    # test_score = "test_score.csv"
 
     from collections import defaultdict
 
@@ -529,9 +543,10 @@ def load_glmnet_bootstrap(model_dir):
             file.columns = ["feature", f"coef_{seed}"]
             file.set_index("feature", inplace=True)
         elif filename == "train_score":
-            continue
-        else:
+            file.rename(columns={"pred": f"pred_{seed}"}, inplace=True)
+            file.set_index("eid", inplace=True)
 
+        else:
             file.rename(columns={"pred": f"pred_{seed}"}, inplace=True)
             file.set_index("eid", inplace=True)
 
@@ -593,7 +608,7 @@ class LassoTrainTFPipline(object):
 
         phenosData = phenoconfig.data
 
-        model_list = mmconfig["model"]
+        # model_list = mmconfig["model"]
         modelname = mmconfig["name"]
         feature = mmconfig["feature"]
         cov = mmconfig["cov"] if mmconfig["cov"] is not None else []
@@ -612,6 +627,7 @@ class LassoTrainTFPipline(object):
         # check output
         model_output_folder = outputFolder / modelname
         model_output_folder.mkdir(parents=True, exist_ok=True)
+        print(f"Output folder: {model_output_folder}")
         # lasso
         lasso_config = LassoConfig(
             feature=feature,
@@ -624,7 +640,7 @@ class LassoTrainTFPipline(object):
         json_dir = model_output_folder / "train_config.json"
         json.dump(lasso_config, open(json_dir, "w"))
 
-        model_save_dir = model_output_folder / "model"
+        # model_save_dir = model_output_folder / "model"
 
         # data save to
         train_feather = (
@@ -634,9 +650,9 @@ class LassoTrainTFPipline(object):
         ).reset_index(drop=True)
 
         tmp_train_feather_dir = model_output_folder / "train.feather"
-        ##################### rm ##################
-        train_feather = train_feather.head(10000)
-        ##################### rm ##################
+        # ##################### rm ##################
+        # train_feather = train_feather.head(10000)
+        # ##################### rm ##################
         print(f"Train data shape: {train_feather.shape}")
 
         train_feather.to_feather(tmp_train_feather_dir)
@@ -818,3 +834,6 @@ class LassoTrainTFPipline(object):
                 model_output_folder / "best_model_score.csv",
             )
             return
+
+
+
