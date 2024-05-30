@@ -651,7 +651,7 @@ class LassoTrainTFPipline(object):
 
         tmp_train_feather_dir = model_output_folder / "train.feather"
         ##################### rm ##################
-        train_feather = train_feather.head(10000)
+        # train_feather = train_feather.head(10000)
         ##################### rm ##################
         print(f"Train data shape: {train_feather.shape}")
 
