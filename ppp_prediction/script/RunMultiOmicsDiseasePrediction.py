@@ -157,6 +157,7 @@ if __name__ == "__main__":
     testconfig = Config["heldOutData"]
 
     outputFolder = f"{out_dir}/{tgtconfig.name}"
+    Path(outputFolder).mkdir(parents=True, exist_ok=True)
     dist_df.to_csv(outputFolder + "/disease_dist.csv", index=False)
 
     for omics in Config["omicsData"].keys():
