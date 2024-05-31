@@ -318,6 +318,12 @@ for (each in names(json_data)){
     }
     saveRDS(glm_params, paste0(current_output_dir, "/glm_params.rds"))
 
+    # check already exist
+    if (file.exists(paste0(current_output_dir, "/res.rds"))){
+        print(paste0("Skip ", each))
+        next
+    }
+
     res <- glmnet_lasso(train = train, 
     xvar = glm_params$feature,
     label = glm_params$label,
