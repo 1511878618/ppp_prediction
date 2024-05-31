@@ -692,7 +692,7 @@ class LassoTrainTFPipline(object):
 
         # run single without random seed
         single_lasso_output_folder = model_output_folder / "single"
-        if not single_lasso_output_folder / "res.rds".exists(): # No results of before then run 
+        if not (single_lasso_output_folder / "res.rds").exists(): # No results of before then run 
             run_glmnet(
                 json_dir=json_dir,
                 train_dir=tmp_train_feather_dir,
