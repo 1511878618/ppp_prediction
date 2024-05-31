@@ -19,8 +19,10 @@ try:
 except:
     pass
 
-
-
+from collections import defaultdict
+from ppp_prediction.corr import cal_binary_metrics_bootstrap
+from joblib import Parallel, delayed
+from adjustText import adjust_text
 
 class DataConfig(object):
     def __init__(self, path, name=None, **kwargs):
@@ -151,7 +153,6 @@ def plot_coef_scatter(data, coef, feature, k=6, ax=None, cmap="nejm"):
         .reset_index(drop=False, names=["idx"])
     )
 
-    from adjustText import adjust_text
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(12, 4))
@@ -527,7 +528,6 @@ def load_glmnet_bootstrap(model_dir):
     # train_score = "train_score.csv"
     # test_score = "test_score.csv"
 
-    from collections import defaultdict
 
     res = defaultdict(lambda: defaultdict(list))
 
@@ -692,12 +692,15 @@ class LassoTrainTFPipline(object):
 
         # run single without random seed
         single_lasso_output_folder = model_output_folder / "single"
-        run_glmnet(
-            json_dir=json_dir,
-            train_dir=tmp_train_feather_dir,
-            out_dir=single_lasso_output_folder,
-            test_dir=tmp_test_feather_dir if self.testdataconfig is not None else None,
-        )
+        if not single_lasso_output_folder / "res.rds".exists(): # No results of before then run 
+            run_glmnet(
+                json_dir=json_dir,
+                train_dir=tmp_train_feather_dir,
+                out_dir=single_lasso_output_folder,
+                test_dir=tmp_test_feather_dir if self.testdataconfig is not None else None,
+            )
+        else:
+            print(f"Single model already exists, skip!!!!")
         if isinstance(n_bootstrap, int) and n_bootstrap > 1:
             if self.testdataconfig is None:
                 raise ValueError(
@@ -705,7 +708,6 @@ class LassoTrainTFPipline(object):
                 )
             # run bootstrap
             bootstrap_output_folder = model_output_folder / "bootstrap"
-            from joblib import Parallel, delayed
 
             res = Parallel(n_jobs=n_jobs)(
                 delayed(run_glmnet)(
@@ -768,7 +770,7 @@ class LassoTrainTFPipline(object):
                 non_zero_features_lasso_config, open(non_zero_features_json_dir, "w")
             )
 
-            # run glmnet
+            # run glmnet for non_zero_features
             non_zero_features_output_folder = model_output_folder / "non_zero_features"
             run_glmnet(
                 json_dir=non_zero_features_json_dir,
@@ -834,7 +836,7 @@ class LassoTrainTFPipline(object):
             )
 
             to_compare_metrics = {}
-            from ppp_prediction.corr import cal_binary_metrics_bootstrap
+
 
             for col in ["single", "mean", "non_zero_features"]:
                 to_cal = to_compare_df[[label, col]].dropna()
