@@ -112,6 +112,7 @@ def run_cox_multivar(
     E: str,
     T: str,
     return_all=False,
+    n_resamples=None,
 ):
 
     if isinstance(var, str):
@@ -131,22 +132,25 @@ def run_cox_multivar(
     event_array = tmp_df[E].values
     time_array = tmp_df[T].values
     partial_hazard = cph.predict_partial_hazard(tmp_df)
-    c_index, (c_index_LCI, c_index_UCI) = bootstrap_ci(
-        metric=lambda event_array, time_array, partial_hazard: concordance_index(
-            time_array, -partial_hazard, event_array
-        ),
-        event_array=event_array,
-        time_array=time_array,
-        partial_hazard=partial_hazard,
-        n_resamples=100,
-        method="bootstrap_basic",
-        random_state=None,
-    )
-    summary_df["c_index_LCI"] = c_index_LCI
-    summary_df["c_index_UCI"] = c_index_UCI
-    summary_df["c_index (95% CI)"] = (
-        f"{c_index:.2f} ({c_index_LCI:.2f}-{c_index_UCI:.2f}"
-    )
+
+    if n_resamples is not None: 
+        if n_resamples > 0:
+            c_index, (c_index_LCI, c_index_UCI) = bootstrap_ci(
+                metric=lambda event_array, time_array, partial_hazard: concordance_index(
+                    time_array, -partial_hazard, event_array
+                ),
+                event_array=event_array,
+                time_array=time_array,
+                partial_hazard=partial_hazard,
+                n_resamples=n_resamples,
+                method="bootstrap_basic",
+                random_state=None,
+            )
+            summary_df["c_index_LCI"] = c_index_LCI
+            summary_df["c_index_UCI"] = c_index_UCI
+            summary_df["c_index (95% CI)"] = (
+                f"{c_index:.2f} ({c_index_LCI:.2f}-{c_index_UCI:.2f}"
+            )
 
     # AIC
     summary_df["AIC"] = cph.AIC_partial_

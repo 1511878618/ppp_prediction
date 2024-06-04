@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     outputFolder = f"{out_dir}/{tgtconfig.name}"
     Path(outputFolder).mkdir(parents=True, exist_ok=True)
-    dist_df.to_csv(outputFolder + "/disease_dist.csv", index=False)
+    dist_df.to_csv(outputFolder + "/disease_dist.csv", index=True)
 
     for omics in Config["omicsData"].keys():
         assert omics in Config["modelConfig"].keys(), f"{omics} not in model config"
