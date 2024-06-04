@@ -35,6 +35,7 @@ class DataConfig(object):
     def __load_data__(self):
         print(f"Loading data: {self.name}")
         self.data = load_data(self.path)
+        self.data['eid'] = self.data['eid'].astype(str)
 
     def __str__(self) -> str:
         return self.name
