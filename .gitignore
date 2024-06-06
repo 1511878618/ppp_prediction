@@ -1,7 +1,7 @@
 #user defined 
 *.tsv
 _resultv1
-result/
+# result/
 old_version_code
 # Byte-compiled / optimized / DLL files
 __pycache__/

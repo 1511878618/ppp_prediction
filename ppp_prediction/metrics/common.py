@@ -30,7 +30,7 @@ from sklearn.metrics import (
 )
 from scipy.stats import pearsonr, spearmanr
 import scipy.stats as ss
-
+from .utils import find_best_cutoff
 from .ci import bootstrap_ci
 
 def cal_binary_metrics(y, y_pred, ci=False, n_resamples=100):
@@ -57,7 +57,9 @@ def cal_binary_metrics(y, y_pred, ci=False, n_resamples=100):
             "APR": APR,
         }
     elif ci:
-        cal_binary_metrics_bootstrap(y, y_pred, ci_kwargs={"n_resamples": n_resamples})
+        return cal_binary_metrics_bootstrap(
+            y, y_pred, ci_kwargs={"n_resamples": n_resamples}
+        )
 
 def cal_qt_metrics(y_true, y_pred):
     pearsonr_score = pearsonr(y_true, y_pred)[0]
@@ -70,10 +72,6 @@ def cal_qt_metrics(y_true, y_pred):
         "explained_variance_score": explained_variance_score_,
         "r2_score": r2_score_,
     }
-
-
-
-
 
 
 def cal_binary_metrics_bootstrap(y, y_pred, ci_kwargs=None):
@@ -145,4 +143,3 @@ def APR_bootstrap(y_true, y_pred, **args):
 
     )
     return APR, APR_CI
-

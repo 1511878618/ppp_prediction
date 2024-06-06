@@ -1,7 +1,7 @@
 
 
 
-from .utils import load_data
+
 import json
 import subprocess
 import shutil
@@ -24,6 +24,24 @@ from ppp_prediction.corr import cal_binary_metrics_bootstrap
 from joblib import Parallel, delayed
 from adjustText import adjust_text
 
+def load_data_v2(data_dir, eid_col="eid"):
+    
+
+    x = str(x)
+    if ".csv" in x:
+        data = pd.read_csv(x)
+    elif x.endswith(".feather"):
+        data = pd.read_feather(x)
+    elif x.endswith(".pkl"):
+        data = pd.read_pickle(x)
+    elif ".tsv" in x:
+        data = pd.read_csv(x, sep="\t")
+    else:
+        raise ValueError(f"File format: {x} not supported")
+    data[eid_col] = data[eid_col].astype(str)
+    return data 
+
+
 class DataConfig(object):
     def __init__(self, path, name=None, **kwargs):
         self.name = name if name else Path(path).stem
@@ -34,8 +52,8 @@ class DataConfig(object):
 
     def __load_data__(self):
         print(f"Loading data: {self.name}")
-        self.data = load_data(self.path)
-        self.data['eid'] = self.data['eid'].astype(str)
+        self.data = load_data_v2(self.path)
+        # self.data['eid'] = self.data['eid'].astype(str)
 
     def __str__(self) -> str:
         return self.name
@@ -787,27 +805,27 @@ class LassoTrainTFPipline(object):
             train_score_dict = {}
 
             # for single 
-            single_test_score = load_data(
+            single_test_score = load_data_v2(
                 single_lasso_output_folder / modelname / "test_score.csv"
             )
             single_test_score.columns = ["eid", "single"]
             score_dict["single"] = single_test_score
 
-            single_train_score = load_data(
+            single_train_score = load_data_v2(
                 single_lasso_output_folder / modelname / "train_score.csv"
             )
             single_train_score.columns = ["eid", "single"]
             train_score_dict["single"] = single_train_score
 
             # bootstrap
-            bootstrap_test_score = load_data(
+            bootstrap_test_score = load_data_v2(
                 bootstrap_output_folder / "test_score.feather"
             )
             bootstrap_test_score["mean"] = bootstrap_test_score.iloc[:, 1:].mean(axis=1)
             bootstrap_test_score = bootstrap_test_score[["eid", "mean"]]
             score_dict["mean"] = bootstrap_test_score
 
-            bootstrap_train_score = load_data(
+            bootstrap_train_score = load_data_v2(
                 bootstrap_output_folder / "train_score.feather"
             )
             bootstrap_train_score["mean"] = bootstrap_train_score.iloc[:, 1:].mean(axis=1)
@@ -816,13 +834,13 @@ class LassoTrainTFPipline(object):
 
 
             # non_zero 
-            non_zero_features_test_score = load_data(
+            non_zero_features_test_score = load_data_v2(
                 non_zero_features_output_folder / modelname / "test_score.csv"
             )
             non_zero_features_test_score.columns = ["eid", "non_zero_features"]
             score_dict["non_zero_features"] = non_zero_features_test_score
 
-            non_zero_features_train_score = load_data(
+            non_zero_features_train_score = load_data_v2(
                 non_zero_features_output_folder / modelname / "train_score.csv"
             )
             non_zero_features_train_score.columns = ["eid", "non_zero_features"]

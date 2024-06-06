@@ -166,6 +166,8 @@ def run_cox_multivar(
     res_df["HR (95% CI)"] = res_df.apply(
         lambda x: f"{x['HR']:.2f} ({x['HR_LCI']:.2f}-{x['HR_UCI']:.2f})", axis=1
     )
+    res_df.insert(1, "HR (95% CI)", res_df.pop("HR (95% CI)"))
+    res_df.insert(2, "p", res_df.pop("p"))
     res_df = res_df.rename(columns={"covariate": "var"})
 
     if return_all:
