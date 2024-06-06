@@ -175,10 +175,42 @@ if __name__ == "__main__":
         nproc=16,
     )
 
+    model_directory=f"{output_dir}/{datestamp_min}_geneformer_cellClassifier_{output_prefix}/ksplit1/"
     all_metrics_test = cc.evaluate_saved_model(
-        model_directory=f"{output_dir}/{datestamp_min}_geneformer_cellClassifier_{output_prefix}/ksplit1/",
+        model_directory=model_directory,
         id_class_dict_file=f"{output_dir}/{output_prefix}_id_class_dict.pkl",
         test_data_file=f"{output_dir}/{output_prefix}_labeled_test.dataset",
         output_directory=output_dir,
         output_prefix=output_prefix,
     )
+
+    test_data_file = args.test
+    output_directory = output_dir
+    import datasets
+    from torch.utils.data import DataLoader
+
+    test_dataset = datasets.load_from_disk(test_data_file)
+    test_dataloader = DataLoader(
+        test_dataset.select_columns(["input_ids", "eid"]).with_format("torch"),  # make sure have eid 
+        batch_size=32,
+    )
+    import ppp_prediction.geneformer.perturber_utils as pu
+    model=  pu.load_model("CellClassifier", 2, model_directory, "eval")
+
+    import torch
+
+    model.eval()
+    pred = []
+
+    with torch.no_grad():
+
+        for batch in test_dataloader:
+            o = model(batch["input_ids"].cuda())
+            o = torch.nn.functional.softmax(o.logits, dim=-1)[:, 1]
+            pred.append(o.cpu())
+
+    pred = torch.cat(pred).numpy()
+    test_score = (
+    test_dataset.select_columns(["eid", "incident_cad"]).to_pandas().assign(pred=pred)
+)
+    test_score.to_csv(f"{output_directory}/test_score.csv", index=False)

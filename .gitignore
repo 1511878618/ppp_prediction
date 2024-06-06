@@ -3,6 +3,19 @@
 _resultv1
 # result/
 old_version_code
+5_dl_fit/
+CAD_xhv2_exclude_more/
+_resultv2
+_resultv1
+lightning_logs
+results/
+result
+MulitOmicsDisease
+checkpoint_new
+transtab
+
+checkpoint
+finetune_geneformer
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
