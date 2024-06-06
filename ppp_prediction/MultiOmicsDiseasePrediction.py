@@ -21,9 +21,9 @@ from joblib import Parallel, delayed
 from adjustText import adjust_text
 
 def load_data_v2(data_dir, eid_col="eid"):
-    
 
-    x = str(x)
+    x = str(data_dir)
+
     if ".csv" in x:
         data = pd.read_csv(x)
     elif x.endswith(".feather"):
@@ -866,7 +866,7 @@ class LassoTrainTFPipline(object):
                 1, "AUC (95% CI)", to_compare_metrics.pop("AUC (95% CI)")
             )
 
-            # save 
+            # save
             to_compare_metrics.to_csv(
                 model_output_folder / "compare_metrics.csv", index=True
             )
@@ -932,5 +932,3 @@ class LassoTrainTFPipline(object):
             test_metrics_df.to_csv(
                 model_output_folder / "compare_metrics.csv", index=True
             )
-            
-            
