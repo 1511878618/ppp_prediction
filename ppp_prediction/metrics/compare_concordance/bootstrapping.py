@@ -3,7 +3,7 @@ import numpy as np
 import scipy as sp
 import scipy.stats
 
-from compare_concordance import estimate_concordance
+from . import estimate_concordance
 
 
 def compare_concordance_with_bootstrap(
