@@ -1,7 +1,3 @@
-
-
-
-
 import json
 import subprocess
 import shutil
@@ -18,7 +14,7 @@ try:
     sci_palettes.register_cmap()
 except:
     pass
-
+from ppp_prediction.metrics.utils import format_metrics
 from collections import defaultdict
 from ppp_prediction.corr import cal_binary_metrics_bootstrap
 from joblib import Parallel, delayed
@@ -547,7 +543,6 @@ def load_glmnet_bootstrap(model_dir):
     # train_score = "train_score.csv"
     # test_score = "test_score.csv"
 
-
     res = defaultdict(lambda: defaultdict(list))
 
     found_csvs = list(model_dir.rglob("*.csv"))
@@ -578,8 +573,6 @@ def load_glmnet_bootstrap(model_dir):
             res[submodelname][subcsv] = merged
 
     return res
-
-
 
 
 def run_glmnet(
@@ -804,7 +797,7 @@ class LassoTrainTFPipline(object):
             score_dict = {}
             train_score_dict = {}
 
-            # for single 
+            # for single
             single_test_score = load_data_v2(
                 single_lasso_output_folder / modelname / "test_score.csv"
             )
@@ -832,8 +825,7 @@ class LassoTrainTFPipline(object):
             bootstrap_train_score = bootstrap_train_score[["eid", "mean"]]
             train_score_dict["mean"] = bootstrap_train_score
 
-
-            # non_zero 
+            # non_zero
             non_zero_features_test_score = load_data_v2(
                 non_zero_features_output_folder / modelname / "test_score.csv"
             )
@@ -856,7 +848,6 @@ class LassoTrainTFPipline(object):
 
             to_compare_metrics = {}
 
-
             for col in ["single", "mean", "non_zero_features"]:
                 to_cal = to_compare_df[[label, col]].dropna()
                 to_compare_metrics[col] = cal_binary_metrics_bootstrap(
@@ -865,7 +856,17 @@ class LassoTrainTFPipline(object):
             to_compare_metrics = pd.DataFrame(to_compare_metrics).T.sort_values(
                 "AUC", ascending=False
             )
+            # format
+            to_compare_metrics["AUC (95% CI)"] = format_metrics(
+                to_compare_metrics["AUC"],
+                to_compare_metrics["AUC_UCI"],
+                to_compare_metrics["AUC_LCI"],
+            )
+            to_compare_metrics.insert(
+                1, "AUC (95% CI)", to_compare_metrics.pop("AUC (95% CI)")
+            )
 
+            # save 
             to_compare_metrics.to_csv(
                 model_output_folder / "compare_metrics.csv", index=True
             )
@@ -877,11 +878,11 @@ class LassoTrainTFPipline(object):
             best_model_score.to_csv(
                 model_output_folder / "best_model_score_on_test.csv", index=False
             )
-            
+
             train_score_dict[best_model].to_csv(
                 model_output_folder / "best_model_score_on_train.csv", index=False
             )
-            # save all score 
+            # save all score
             from functools import reduce
             all_score_test = reduce(
                 lambda x, y: x.merge(y, on="eid", how="outer"), score_dict.values()
@@ -903,8 +904,33 @@ class LassoTrainTFPipline(object):
                 single_lasso_output_folder / modelname / "train_score.csv",
                 model_output_folder / "best_model_score_on_train.csv",
             )
+            test_score = load_data_v2(
+                single_lasso_output_folder / modelname / "test_score.csv"
+            )
+            to_cal = (
+                test_feather[["eid", label]]
+                .merge(test_score, on="eid", how="inner")
+                .dropna()
+            )
+            test_metrics = cal_binary_metrics_bootstrap(
+                to_cal[label], to_cal["pred"], ci_kwargs={"n_resamples": 100}
+            )
+            test_metrics_df = pd.DataFrame(test_metrics).T.sort_values(
+                "AUC", ascending=False
+            )
 
-            return
+            # format
+            test_metrics_df["AUC (95% CI)"] = format_metrics(
+                test_metrics_df["AUC"],
+                test_metrics_df["AUC_UCI"],
+                test_metrics_df["AUC_LCI"],
+            )
+            test_metrics_df.insert(
+                1, "AUC (95% CI)", test_metrics_df.pop("AUC (95% CI)")
+            )
 
-
-
+            test_metrics_df.to_csv(
+                model_output_folder / "compare_metrics.csv", index=True
+            )
+            
+            
