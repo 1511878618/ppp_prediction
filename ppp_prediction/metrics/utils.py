@@ -8,7 +8,7 @@ def find_best_cutoff(fpr, tpr, thresholds):
 
 
 from scipy.stats import norm
-
+import pandas as pd 
 
 def cal_pvalue(mean, se, uci=None, lci=None, z=None):
     """

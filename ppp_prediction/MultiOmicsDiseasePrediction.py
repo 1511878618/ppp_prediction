@@ -10,10 +10,7 @@ pd.set_option("display.max_columns", None)
 
 import seaborn as sns
 import matplotlib.pyplot as plt
-try:
-    sci_palettes.register_cmap()
-except:
-    pass
+
 from ppp_prediction.metrics.utils import format_metrics
 from collections import defaultdict
 from ppp_prediction.corr import cal_binary_metrics_bootstrap
