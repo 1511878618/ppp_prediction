@@ -24,6 +24,32 @@ suppressPackageStartupMessages({
 library(optparse)
 
 })
+sumweights <- function(data, coef, xvar) {
+    # 确保 coef 是一个向量, xvar 是用来指定数据和系数中的列
+    coef_vector <- as.numeric(coef[xvar,])
+    
+    # 应用函数计算每行的加权和
+    return(apply(data[, xvar], 1, function(x) sum(x * coef_vector)))
+}
+
+standardize_func <- function(data, xvar = NULL, means = NULL, sds = NULL) {
+  # 计算每列的均值和标准差
+  if (is.null(xvar)) xvar <- colnames(data)
+  if (is.null(means)) means <- colMeans(data[, xvar])
+  if (is.null(sds)) sds <- apply(data[, xvar], 2, sd)
+
+  means <- means[xvar]
+  sds <- sds[xvar]
+
+  data[, xvar] <- data.frame(scale(data[, xvar], center = means, scale = sds))
+  # 标准化数据
+  return (list(
+    data =data,
+    mean = means,
+    std = sds
+  ))
+
+}
 
 glmnet_lasso<-function(
   train,
@@ -34,6 +60,7 @@ glmnet_lasso<-function(
   covariate = NULL,
   cv = 5,
   alpha=1,
+  weights = NULL,
   lambda = NULL,
   trace.it = 1,
   family = "gaussian",
@@ -90,6 +117,7 @@ glmnet_lasso<-function(
       as.matrix(train[, used_fatures]),
       as.matrix(train_y),
       alpha = alpha,
+      weights=weights,
       nfolds = cv,
       lambda = lambda,
       trace.it = trace.it,

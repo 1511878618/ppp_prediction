@@ -912,6 +912,7 @@ class LassoTrainTFPipline(object):
             test_metrics = cal_binary_metrics_bootstrap(
                 to_cal[label], to_cal["pred"], ci_kwargs={"n_resamples": 100}
             )
+            test_metrics = {k: [v] for k, v in test_metrics.items()}
             test_metrics_df = pd.DataFrame(test_metrics).T.sort_values(
                 "AUC", ascending=False
             )

@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as ss
 from ppp_prediction.corr import cal_corr_v2
+from ppp_prediction.utils import load_data
 
 warnings.filterwarnings("ignore")
 import time 
@@ -113,16 +114,16 @@ def rank_to_normal(rank, c, n):
     return ss.norm.ppf(x)
 
 
-# rank_INT end 
+# rank_INT end
 
 
 # def cal_pearsonr(x, y):
 #     try:
 #         r, p = pearsonr(x, y)
 #     except:
-#         r, p = None, None 
+#         r, p = None, None
 #     return {"r":r, "pvalue":p}
-    
+
 
 # def logistic_regression(data, x, y, confounding=None):
 #     # Define the independent variables (X) and the dependent variable (y)
@@ -133,7 +134,7 @@ def rank_to_normal(rank, c, n):
 
 #     x_counfound = [x] + confounding if confounding else [x]
 
-#     # drop na 
+#     # drop na
 #     # print(x, y, confounding)
 #     # data = data.dropna(subset=x_counfound + [y], how="any").reset_index(drop=True)
 #     used_cols = x_counfound + [y]
@@ -142,7 +143,7 @@ def rank_to_normal(rank, c, n):
 
 #     if confounding:
 #         print(f"x is {x} and y is {y} with conditional: {','.join(confounding)} and shape is {data.shape}")
-#     else: 
+#     else:
 #         print(f"x is {x} and y is {y} and shape is {data.shape}")
 #     N = data.shape[0]
 #     N_case = data[y].sum()
@@ -175,10 +176,10 @@ def rank_to_normal(rank, c, n):
 #     if confounding:
 #         if not isinstance(confounding, list):
 #             confounding = [confounding]
-    
+
 #     x_counfound = [x] + confounding if confounding else [x]
 
-#     # drop na 
+#     # drop na
 #     data = data.dropna(subset=x_counfound + [y], how="any").reset_index(drop=True)
 #     print(f"x is {x} and y is {y}, confounding is {confounding}; after dropna, keep {data.shape[0]} rows in analysis.")
 #     N = data.shape[0]
@@ -205,7 +206,6 @@ def rank_to_normal(rank, c, n):
 #     #     return {"beta": None, "pvalue":None}
 
 
-
 # def cal_corrs(data, x, y, method, cond_cols=None):
 #     if method == "pearson":
 #         tmp_data = data[[x, y]].dropna()
@@ -218,30 +218,29 @@ def rank_to_normal(rank, c, n):
 #         return NotImplementedError(f"method {method} not supported yet")
 
 
-
 # def cross_corrs(main_df, query_cols,key_cols, method="pearson", cond_cols=None):
 #     """
 #     main_df cols is equal: [query_cols, key_cols]
 #     so query_cols = main_df.columns - key_cols
 
-#     will combination between query_cols and key_cols 
+#     will combination between query_cols and key_cols
 
 #     return: pd.DataFrame
-    
+
 #     """
 #     res = []
 #     if isinstance(main_df, str): # read tmp_part_file_path
 #         main_df = read_data(main_df)
 
-#     # query_cols = list(set(main_df.columns) - set(key_cols)) if cond_cols is None else list(set(main_df.columns) - set(key_cols) - set(cond_cols)) # main_df.columns - key_cols => query_cols 
-    
-#     for query_col in query_cols: # query 
+#     # query_cols = list(set(main_df.columns) - set(key_cols)) if cond_cols is None else list(set(main_df.columns) - set(key_cols) - set(cond_cols)) # main_df.columns - key_cols => query_cols
+
+#     for query_col in query_cols: # query
 #         for key_col in key_cols: # key
 
 #             corr_dict = cal_corrs(data = main_df, x= query_col, y=key_col, method = method, cond_cols = cond_cols)
 #             res.append({**{"query":query_col, "key":key_col} , **corr_dict})
 
-#     return pd.DataFrame(res) 
+#     return pd.DataFrame(res)
 
 
 def read_data(path:str):
@@ -269,8 +268,6 @@ def average_list(x, nums = 5):
     l = len(x)
     step = math.ceil(l/nums)
     return [x[i:i+step] for i in range(0, l ,step)]
-
-
 
 
 def getParser():
@@ -316,18 +313,17 @@ def getParser():
 
 def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond_path=None, cond_cols=None):
 
-    query_df = read_data(query_path)
-    key_df = read_data(key_path)
-    cond_df = read_data(cond_path) if cond_path else None
+    query_df = load_data(query_path)
+    key_df = load_data(key_path)
+    cond_df = load_data(cond_path) if cond_path else None
 
-    # eid may be the index name and not in the first columns in pkl 
+    # eid may be the index name and not in the first columns in pkl
     if query_df.index.name =="eid":
         query_df.reset_index(inplace=True)
     if key_df.index.name =="eid":
         key_df.reset_index(inplace=True)
     if cond_df is not None and cond_df.index.name =="eid":
         cond_df.reset_index(inplace=True)
-
 
     columns_of_query = query_df.columns
     columns_of_key = key_df.columns
@@ -345,7 +341,7 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
         assert (columns_of_query[0] == columns_of_cond[0]), "query and key and  cond should have the same first columns"
     merge_on = columns_of_query[0]
 
-    # set merge_on as str 
+    # set merge_on as str
     query_df[merge_on] = query_df[merge_on].astype(str)
     key_df[merge_on] = key_df[merge_on].astype(str)
     if cond_df is not None:
@@ -359,7 +355,6 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
     query_cols = columns_of_query[columns_of_query.str.contains('|'.join(query_cols))].tolist()
     key_cols = columns_of_key[columns_of_key.str.contains('|'.join(key_cols))].tolist()
     cond_cols = columns_of_cond[columns_of_cond.str.contains('|'.join(cond_cols))].tolist() if columns_of_cond is not None else None
-
 
     # TODO: check if query_cols, key_cols, cond_cols are empty or some col are same
 
@@ -377,20 +372,18 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
         if len(cond_cols) > 0:
             if q_col in cond_cols:
                 raise ValueError(f"query col {q_col} is in cond col, should drop it or avoid this happen!!!!")
-                
+
     for k_col in key_cols:
         if len(cond_cols) > 0:
             if k_col in cond_cols:
                 raise ValueError(f"key col {k_col} is in cond col, should drop it or avoid this happen!!!!")
 
-                
-                
-    # merge 
+    # merge
 
     main_df = query_df.merge(key_df, on = merge_on, how="inner")
     if cond_df is not None:
         main_df = main_df.merge(cond_df, on = merge_on, how="inner")
-    
+
     msg = f"query_col have {len(query_cols)} cols and first 5 cols are {query_cols[:5]}\nkey_col have {len(key_cols)} cols and first 5 cols are {key_cols[:5]}\n" 
 
     if len(cond_cols) == 0:
@@ -398,7 +391,6 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
 
     msg += f"Total shape is {main_df.shape}"
     print(msg)
-
 
     for col in query_cols:
         try:
@@ -422,13 +414,8 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
                 main_df.drop(col, axis=1, inplace=True)
                 cond_cols.remove(col)
 
-
-
     return main_df, {"query_cols":query_cols, "key_cols":key_cols, "cond_cols":cond_cols}
 
-
-
-        
 
 if __name__ == "__main__":
     # input , currently only supported for two files 
