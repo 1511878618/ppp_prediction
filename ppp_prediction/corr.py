@@ -521,6 +521,12 @@ def cal_corr_multivar_v2(
     if isinstance(x, str):
         x = [x]
     used_df = df[x + [y] + cofounder].copy().dropna(how="any")
+    # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them 
+    for col in cofounder:
+        if used_df[col].nunique() <= 1:
+            used_df.drop(col, axis=1, inplace=True)
+            cofounder.remove(col)
+            print(f"drop {col} as binary variable without variance")
 
     if norm_x == "zscore":
         print(f"normalizing x={x} by zscore")
@@ -679,6 +685,14 @@ def cal_corr_v2(
 
             used_df = df[[x, y] + cofounder].copy().dropna(how="any")
 
+            # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them 
+            for col in cofounder:
+                if used_df[col].nunique() <= 1:
+                    used_df.drop(col, axis=1, inplace=True)
+                    cofounder.remove(col)
+                    print(f"drop {col} as binary variable without variance")
+            # to add 哑变量
+
             if norm_x == "zscore":
                 print(f"normalizing x={x} by zscore")
                 used_df[x] = (used_df[x] - used_df[x].mean()) / used_df[x].std()
@@ -726,7 +740,7 @@ def cal_corr_v2(
                 # metrics.update(cal_qt_metrics(Y, y_pred))
                 metrics = cal_qt_metrics(Y, y_pred)
             elif model_type == "logistic":
-                model = sm.Logit(Y, X).fit()
+                model = sm.Logit(Y, X).fit(maxiter=1000)
                 y_pred = model.predict(X)
                 metrics = cal_binary_metrics(Y, y_pred)
             else:
