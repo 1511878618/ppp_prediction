@@ -12,7 +12,8 @@ from sklearn.metrics import (
 from scipy.stats import pearsonr, spearmanr
 import statsmodels.api as sm
 from typing import Union, overload, Tuple, List
-from tqdm.rich import tqdm
+# from tqdm.rich import tqdm
+from tqdm import tqdm
 import numpy as np
 from confidenceinterval.bootstrap import bootstrap_ci
 import confidenceinterval as ci
