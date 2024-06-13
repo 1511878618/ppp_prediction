@@ -113,6 +113,7 @@ def run_cox_multivar(
     T: str,
     return_all=False,
     n_resamples=None,
+    **kwargs,
 ):
 
     if isinstance(var, str):
@@ -122,7 +123,7 @@ def run_cox_multivar(
     tmp_df = df[var + [E, T]].dropna().copy().reset_index(drop=True)
 
     # try:
-    cph.fit(tmp_df, duration_col=T, event_col=E)
+    cph.fit(tmp_df, duration_col=T, event_col=E, **kwargs)
     summary_df = cph.summary
     summary_df["n_control"] = (tmp_df[E] == 0).sum()
     summary_df["n_case"] = (tmp_df[E] == 1).sum()
@@ -229,8 +230,6 @@ def run_cox_complex(
     # except:
     #     print(f"Error in {var}")
     #     return pd.DataFrame()
-
-
 
 
 def run_cox_complex_to_forestplot(

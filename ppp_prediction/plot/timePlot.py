@@ -40,6 +40,8 @@ def getTimePlotDataframe(
     k_num: int = 5,
     metrics: str = "c",
     k_list: Union[None, list] = None,
+    cox_kwargs: dict = {},
+    corr_kwargs: dict = {},
 ):
     if isinstance(scoreCol, str):
         scoreCol = [scoreCol]
@@ -67,6 +69,7 @@ def getTimePlotDataframe(
                     E=E,
                     T=T,
                     return_all=True,
+                    **cox_kwargs
                 )
                 res_df["stopTime"] = k
                 res_list.append(res_df)
@@ -79,6 +82,7 @@ def getTimePlotDataframe(
                     model_type="logistic",
                     ci=True,
                     n_resamples=100,
+                    **corr_kwargs
                 )
                 res["stopTime"] = k
                 res_list.append(res)

@@ -102,7 +102,9 @@ def run_glmnet(
         else:
             test = None
         coef = result["coef"]
-
+        # rm intercept
+        keeped = coef.index.str.contains(".*Intercept.*")
+        coef = coef[~keeped]
     model = glmnet_linear(
         coef,
         feature_names=xvar,

@@ -32,6 +32,41 @@ from sklearn.metrics import (
 from scipy.stats import pearsonr, spearmanr
 import scipy.stats as ss
 
+import pandas as pd
+from sklearn.metrics import (
+    r2_score,
+    explained_variance_score,
+    roc_auc_score,
+    accuracy_score,
+    f1_score,
+    roc_curve,
+    precision_recall_curve,
+    auc,
+)
+from scipy.stats import pearsonr, spearmanr
+import statsmodels.api as sm
+from typing import Union, overload, Tuple, List
+from tqdm.rich import tqdm
+import numpy as np
+from confidenceinterval.bootstrap import bootstrap_ci
+import confidenceinterval as ci
+from statsmodels.stats.multitest import multipletests
+import numpy as np
+import statsmodels.stats.multitest as smm
+from pandas import DataFrame
+from itertools import product
+import statsmodels.api as sm
+from typing import Union, overload, Tuple, List
+from sklearn.metrics import (
+    r2_score,
+    explained_variance_score,
+    roc_auc_score,
+    accuracy_score,
+)
+from scipy.stats import pearsonr, spearmanr
+import scipy.stats as ss
+
+
 def rank_INT(series, c=3.0/8, stochastic=True):
     """ Perform rank-based inverse normal transformation on pandas series.
         If stochastic is True ties are given rank randomly, otherwise ties will
@@ -89,7 +124,6 @@ def rank_to_normal(rank, c, n):
     return ss.norm.ppf(x)
 
 
-
 def cal_residual(df, x: List, y: str, plus_mean=True, return_model=False):
     """
     res_df = cal_residual(a, x=['age','sex'], y='ldl_a')
@@ -115,7 +149,6 @@ def cal_residual(df, x: List, y: str, plus_mean=True, return_model=False):
         return final, model
     else:
         return final
-
 
 
 def generate_multipletests_result(df, pvalue_col='pvalue',alpha=0.05, method='fdr_bh'):
@@ -459,41 +492,6 @@ def cal_corr(
     return result
 
 
-import pandas as pd
-from sklearn.metrics import (
-    r2_score,
-    explained_variance_score,
-    roc_auc_score,
-    accuracy_score,
-    f1_score,
-    roc_curve,
-    precision_recall_curve,
-    auc,
-)
-from scipy.stats import pearsonr, spearmanr
-import statsmodels.api as sm
-from typing import Union, overload, Tuple, List
-from tqdm.rich import tqdm
-import numpy as np
-from confidenceinterval.bootstrap import bootstrap_ci
-import confidenceinterval as ci
-from statsmodels.stats.multitest import multipletests
-import numpy as np
-import statsmodels.stats.multitest as smm
-from pandas import DataFrame
-from itertools import product
-import statsmodels.api as sm
-from typing import Union, overload, Tuple, List
-from sklearn.metrics import (
-    r2_score,
-    explained_variance_score,
-    roc_auc_score,
-    accuracy_score,
-)
-from scipy.stats import pearsonr, spearmanr
-import scipy.stats as ss
-
-
 def cal_corr_multivar_v2(
     df: DataFrame,
     x: Union[str, List[str]],
@@ -598,7 +596,7 @@ def cal_corr_multivar_v2(
         model_res[k] = v
 
     return model_res.iloc[1:, :], metrics  # drop intercept
-    
+
 def cal_corr_v2(
         df:DataFrame,
         x:Union[str, List[str]],
@@ -642,19 +640,17 @@ def cal_corr_v2(
             x = [x]
         if isinstance(y, str):
             y = [y]
-            
+
         x_y_model_combination = list(product(x, y, model_type))
         print(f"total {len(x_y_model_combination)} combination of  to cal by threads {threads}")
         if threads ==1:
             res = [cal_corr_v2(df[[x, y] + cofounder], x, y, cofounder,adjust,norm_x, current_model_type, threads, family,verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs")]
-                
+
         else:
             from joblib import Parallel, delayed
             res = Parallel(n_jobs=threads)(delayed(cal_corr_v2)(df[[x, y] + cofounder], x, y, cofounder, adjust,norm_x,current_model_type, 1, family, verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs"))
 
         return pd.concat(res, axis=1).T
-        
-
 
     elif isinstance(x, str) and isinstance(y, str) and isinstance(model_type, str):
         try:
@@ -667,7 +663,6 @@ def cal_corr_v2(
 
             used_df = df[[x, y] + cofounder].copy().dropna(how="any")
 
-
             if norm_x == "zscore":
                 print(f"normalizing x={x} by zscore")
                 used_df[x] = (used_df[x] - used_df[x].mean()) / used_df[x].std()
@@ -677,7 +672,6 @@ def cal_corr_v2(
             else:
                 pass
 
-
             X = sm.add_constant(used_df[[x] + cofounder])
             Y = used_df[y]
 
@@ -685,25 +679,21 @@ def cal_corr_v2(
                 Y = cal_residual(used_df, x=cofounder, y=y)[f"{y}_residual"]
                 X = sm.add_constant(used_df[[x]])
 
-
             if model_type == "auto":
                 if not adjust:
                     if len(used_df[y].unique()) <= 2:
                         model_type = "logistic"
                     else:
                         model_type = "glm"
-                                        
+
                     print(f"auto model selection for x={x} and y={y} with model_type={model_type}")
                 else:
                     raise ValueError("auto model selection not support for adjust=True")
-    
-  
 
             if model_type == "logistic" and adjust:
                 raise ValueError(
                     "adjust not support for logistic model, so use ols or glm instead"
                 )
-
 
             if model_type == "glm":
                 model = sm.GLM(Y, X, family=family).fit()
@@ -725,7 +715,7 @@ def cal_corr_v2(
                 metrics = cal_binary_metrics(Y, y_pred)
             else:
                 raise ValueError(f"model_type {model_type} not supported")
-            
+
             model_res = (
                 model.summary2()
                 .tables[1]
@@ -761,7 +751,6 @@ def cal_corr_v2(
                 result['OR_UCI'] = np.exp(result['upper'])
                 result['OR_LCI'] = np.exp(result['lower'])
 
-
             if len(cofounder) <=0:
                 result.update(metrics)
 
@@ -774,15 +763,15 @@ def cal_corr_v2(
                 result.update({"N": used_df.shape[0]})
             else:
                 result.update({"N": used_df.shape[0]})
-            
+
             res_series = pd.Series(result)
             return res_series
-
 
         except Exception as e:
             print(f"Error for x={x} and y={y} and model_type={model_type} with {str(e)[:100]}")
 
-            
+            raise e
+
             return pd.Series({
                 "var": x,
                 "exposure": y,
@@ -794,8 +783,6 @@ def cal_corr_v2(
 
     else:
         raise ValueError("x and y  and model_type should be all str or list of str," + f"but is {type(x)}, {type(y)}, {type(model_type)}"+"not support for other type")
-
-
 
 
 def generate_states_cols(res_df, pvalue_col="pvalue"):
