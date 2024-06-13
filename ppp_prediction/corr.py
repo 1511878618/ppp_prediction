@@ -649,7 +649,22 @@ def cal_corr_v2(
 
         else:
             from joblib import Parallel, delayed
-            res = Parallel(n_jobs=threads)(delayed(cal_corr_v2)(df[[x, y] + cofounder], x, y, cofounder, adjust,norm_x,current_model_type, 1, family, verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs"))
+            # res = Parallel(n_jobs=threads)(delayed(cal_corr_v2)(df[[x, y] + cofounder], x, y, cofounder, adjust,norm_x,current_model_type, 1, family, verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs"))
+            res = Parallel(n_jobs=threads)(
+                delayed(cal_corr_v2)(
+                    df[[x, y] + cofounder],
+                    x,
+                    y,
+                    cofounder,
+                    adjust,
+                    norm_x,
+                    current_model_type,
+                    1,
+                    family,
+                    verbose,
+                )
+                for x, y, current_model_type in x_y_model_combination
+            )
 
         return pd.concat(res, axis=1).T
 
