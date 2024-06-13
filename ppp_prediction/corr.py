@@ -685,7 +685,7 @@ def cal_corr_v2(
 
             used_df = df[[x, y] + cofounder].copy().dropna(how="any")
 
-            # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them 
+            # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them
             for col in cofounder:
                 if used_df[col].nunique() <= 1:
                     used_df.drop(col, axis=1, inplace=True)
@@ -799,8 +799,6 @@ def cal_corr_v2(
 
         except Exception as e:
             print(f"Error for x={x} and y={y} and model_type={model_type} with {str(e)[:100]}")
-
-            raise e
 
             return pd.Series({
                 "var": x,
