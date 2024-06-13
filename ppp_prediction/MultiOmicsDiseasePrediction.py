@@ -621,9 +621,20 @@ class LassoTrainTFPipline(object):
         modelname = mmconfig["name"]
         feature = mmconfig["feature"]
         cov = mmconfig["cov"] if mmconfig["cov"] is not None else []
+        # check cov in feature
+        cov_in_pheno = []
+        cov_in_feature = []
+        for c in cov:
+            if c in feature:
+                feature.remove(c)
+                cov_in_feature.append(c)
+            elif c in phenosData.columns:
+                cov_in_pheno.append(c)
+            else:
+                raise ValueError(f"cov: {c} not in feature or phenosData")
 
         # copy data
-        used_pheno_data = phenosData[["eid"] + cov].copy()
+        used_pheno_data = phenosData[["eid"] + cov_in_pheno].copy()
         used_dis_data = diseaseData[["eid", label]].copy()
 
         # check eid dtype
@@ -652,9 +663,14 @@ class LassoTrainTFPipline(object):
         # model_save_dir = model_output_folder / "model"
 
         # data save to
+        # train_feather = (
+        #     dataconfig.data.merge(diseaseData[["eid", label]], on="eid", how="inner")
+        #     .merge(phenosData[["eid"] + cov], on="eid", how="inner")
+        #     .dropna(subset=[label])
+        # ).reset_index(drop=True)
         train_feather = (
-            dataconfig.data.merge(diseaseData[["eid", label]], on="eid", how="inner")
-            .merge(phenosData[["eid"] + cov], on="eid", how="inner")
+            dataconfig.data.merge(used_dis_data, on="eid", how="inner")
+            .merge(used_pheno_data, on="eid", how="inner")
             .dropna(subset=[label])
         ).reset_index(drop=True)
 
