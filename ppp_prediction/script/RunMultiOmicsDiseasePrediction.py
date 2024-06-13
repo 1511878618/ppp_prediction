@@ -62,18 +62,15 @@ if __name__ == "__main__":
     n_jobs = args.n_jobs
     if not Path(out_dir).exists():
         Path(out_dir).mkdir(parents=True)
-    
-
 
     import json
     with open(json_file, 'r') as f:
         params_json = json.load(f)
 
-    # set omics data path 
+    # set omics data path
     for key in ['omicsData', 'heldOutData', 'diseaseData', 'phenosData', 'modelConfig']:
         if key not in params_json:
             raise ValueError(f"Key {key} not in json file")
-        
 
     # set omics data path
     for key in params_json['omicsData'].keys():
@@ -87,7 +84,7 @@ if __name__ == "__main__":
     # set phenosData path
     params_json['phenosData']['path'] = Path(data_dir) / params_json['phenosData']['path']
 
-    # config 
+    # config
     OmicsDataDirDict = {k: DataConfig(**v) for k, v in params_json["omicsData"].items()}
     heldOutDataDict = DataConfig(**params_json["heldOutData"])
     diseaseDict = DataConfig(**params_json["diseaseData"])
@@ -131,7 +128,7 @@ if __name__ == "__main__":
             print(f"Set feature for {mconfig['name']} as no feature passed, so use all")
             # else:
             #     raise ValueError(f"Feature for {mconfig['name']} is not set")
-    
+
     # check cov
     for mconfig in Config["modelConfig"].values():
         cov = mconfig["cov"]
@@ -142,7 +139,10 @@ if __name__ == "__main__":
                 )
             else:
                 for c in cov:
-                    if c not in Config["phenosData"].data.columns:
+                    if (
+                        c not in Config["phenosData"].data.columns
+                        and c not in Config["omicsData"][mconfig["name"]].data.columns
+                    ):
                         raise ValueError(
                             f"cov of {mconfig['name']}, {c} not in phenosData columns"
                         )
