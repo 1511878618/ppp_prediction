@@ -168,6 +168,7 @@ if __name__ == "__main__":
         print(f"Running {omics}")
 
         model_type = mmconfig['model']
+        omics_outputFolder = f"{outputFolder}/{omics}"
         if isinstance(model_type, list):
             model_type = model_type[0]
         if model_type == "lasso" and len(cov) >1:
@@ -178,9 +179,9 @@ if __name__ == "__main__":
                 phenoconfig=phenoconfig,
                 testdataconfig=testconfig,
             ).run(
-                outputFolder=outputFolder,
+                outputFolder=omics_outputFolder,
                 n_bootstrap=mmconfig.get("n_bootstrap", None),
-                n_jobs = n_jobs
+                n_jobs=n_jobs,
             )
         elif model_type in ['Lasso', 'ElasticNet', "Logistic", "Ridge"]:
             LinearModel(
@@ -190,11 +191,11 @@ if __name__ == "__main__":
                 phenoconfig=phenoconfig,
                 testdataconfig=testconfig,
             ).run(
-                outputFolder=outputFolder,
+                outputFolder=omics_outputFolder,
                 model_name=model_type,
                 device="cuda",
                 n_threads=n_jobs,
-    )
+            )
         elif model_type == "xgboost":
             XGBoostModel(
                 mmconfig=mmconfig,
@@ -203,7 +204,7 @@ if __name__ == "__main__":
                 phenoconfig=phenoconfig,
                 testdataconfig=testconfig,
             ).run(
-                outputFolder=outputFolder,
+                outputFolder=omics_outputFolder,
                 device="cuda",
                 n_threads=n_jobs,
             )
