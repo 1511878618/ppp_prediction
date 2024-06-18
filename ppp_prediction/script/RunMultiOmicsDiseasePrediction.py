@@ -174,7 +174,6 @@ if __name__ == "__main__":
         dataconfig = Config["omicsData"][omics]
         print(f"Running {omics}")
 
-
         # model_type = mmconfig['model']
         omics_outputFolder = f"{outputFolder}/{omics}"
         model_list = mmconfig["model"]
@@ -203,7 +202,7 @@ if __name__ == "__main__":
                     testdataconfig=testconfig,
                 ).run(
                     outputFolder=omics_outputFolder,
-                    model_name=model_type,
+                    modelname=model_type,
                     device=device,
                     n_threads=n_jobs,
                 )
