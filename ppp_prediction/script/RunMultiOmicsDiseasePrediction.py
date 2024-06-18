@@ -162,7 +162,6 @@ if __name__ == "__main__":
     Path(outputFolder).mkdir(parents=True, exist_ok=True)
     dist_df.to_csv(outputFolder + "/disease_dist.csv", index=True)
 
-
     if use_gpu:
         print("Using GPU")
         device = "cuda"
@@ -175,48 +174,53 @@ if __name__ == "__main__":
         dataconfig = Config["omicsData"][omics]
         print(f"Running {omics}")
 
-        model_type = mmconfig['model']
+        # model_type = mmconfig['model']
         omics_outputFolder = f"{outputFolder}/{omics}"
-        if isinstance(model_type, list):
-            model_type = model_type[0]
-        if model_type == "lasso" and len(cov) >1:
-            LassoTrainTFPipline(
-                mmconfig=mmconfig,
-                dataconfig=dataconfig,
-                tgtconfig=tgtconfig,
-                phenoconfig=phenoconfig,
-                testdataconfig=testconfig,
-            ).run(
-                outputFolder=omics_outputFolder,
-                n_bootstrap=mmconfig.get("n_bootstrap", None),
-                n_jobs=n_jobs,
-            )
-        elif model_type in ['Lasso', 'ElasticNet', "Logistic", "Ridge"]:
-            LinearModel(
-                mmconfig=mmconfig,
-                dataconfig=dataconfig,
-                tgtconfig=tgtconfig,
-                phenoconfig=phenoconfig,
-                testdataconfig=testconfig,
-            ).run(
-                outputFolder=omics_outputFolder,
-                model_name=model_type,
-                device=device,
-                n_threads=n_jobs,
-            )
-        elif model_type == "xgboost":
-            XGBoostModel(
-                mmconfig=mmconfig,
-                dataconfig=dataconfig,
-                tgtconfig=tgtconfig,
-                phenoconfig=phenoconfig,
-                testdataconfig=testconfig,
-            ).run(
-                outputFolder=omics_outputFolder,
-                device=device,
-                n_threads=n_jobs,
-            )
+        model_list = mmconfig["model"]
+        if isinstance(model_list, str):
+            model_list = [model_list]
+        for model_type in model_list:
 
-        else:
-            raise ValueError(f"Model type {model_type} not supported, only support lasso")
+            if model_type == "lasso" and len(cov) > 1:
+                LassoTrainTFPipline(
+                    mmconfig=mmconfig,
+                    dataconfig=dataconfig,
+                    tgtconfig=tgtconfig,
+                    phenoconfig=phenoconfig,
+                    testdataconfig=testconfig,
+                ).run(
+                    outputFolder=omics_outputFolder,
+                    n_bootstrap=mmconfig.get("n_bootstrap", None),
+                    n_jobs=n_jobs,
+                )
+            elif model_type in ["Lasso", "ElasticNet", "Logistic", "Ridge"]:
+                LinearModel(
+                    mmconfig=mmconfig,
+                    dataconfig=dataconfig,
+                    tgtconfig=tgtconfig,
+                    phenoconfig=phenoconfig,
+                    testdataconfig=testconfig,
+                ).run(
+                    outputFolder=omics_outputFolder,
+                    model_name=model_type,
+                    device=device,
+                    n_threads=n_jobs,
+                )
+            elif model_type == "xgboost":
+                XGBoostModel(
+                    mmconfig=mmconfig,
+                    dataconfig=dataconfig,
+                    tgtconfig=tgtconfig,
+                    phenoconfig=phenoconfig,
+                    testdataconfig=testconfig,
+                ).run(
+                    outputFolder=omics_outputFolder,
+                    device=device,
+                    n_threads=n_jobs,
+                )
+
+            else:
+                raise ValueError(
+                    f"Model type {model_type} not supported, only support lasso"
+                )
     print("Done!!!!!!")
