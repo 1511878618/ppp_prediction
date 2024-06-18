@@ -47,6 +47,8 @@ def getParser():
     parser.add_argument(
         "--n_jobs", type=int, help="number of jobs", required=False, default=4
     )
+    parser.add_argument(
+        "--gpu", action="store_true", help="use gpu", required=False, default=False
 
 
 
@@ -61,6 +63,7 @@ if __name__ == "__main__":
     data_dir = args.data_dir_prefix
     out_dir = args.out_dir
     n_jobs = args.n_jobs
+    use_gpu = args.gpu
     if not Path(out_dir).exists():
         Path(out_dir).mkdir(parents=True)
 
@@ -161,6 +164,13 @@ if __name__ == "__main__":
     Path(outputFolder).mkdir(parents=True, exist_ok=True)
     dist_df.to_csv(outputFolder + "/disease_dist.csv", index=True)
 
+
+    if use_gpu:
+        print("Using GPU")
+        device = "cuda"
+    else:
+        device = "cpu"
+        print("Using CPU")
     for omics in Config["omicsData"].keys():
         assert omics in Config["modelConfig"].keys(), f"{omics} not in model config"
         mmconfig = Config["modelConfig"][omics]
@@ -193,7 +203,7 @@ if __name__ == "__main__":
             ).run(
                 outputFolder=omics_outputFolder,
                 model_name=model_type,
-                device="cuda",
+                device=device,
                 n_threads=n_jobs,
             )
         elif model_type == "xgboost":
@@ -205,7 +215,7 @@ if __name__ == "__main__":
                 testdataconfig=testconfig,
             ).run(
                 outputFolder=omics_outputFolder,
-                device="cuda",
+                device=device,
                 n_threads=n_jobs,
             )
 
