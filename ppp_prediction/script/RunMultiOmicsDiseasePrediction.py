@@ -174,13 +174,14 @@ if __name__ == "__main__":
         dataconfig = Config["omicsData"][omics]
         print(f"Running {omics}")
 
+
         # model_type = mmconfig['model']
         omics_outputFolder = f"{outputFolder}/{omics}"
         model_list = mmconfig["model"]
+        print(f"Totally {len(model_list)} models to run : {' '.join(model_list)}")
         if isinstance(model_list, str):
             model_list = [model_list]
         for model_type in model_list:
-
             if model_type == "lasso" and len(cov) > 1:
                 LassoTrainTFPipline(
                     mmconfig=mmconfig,
