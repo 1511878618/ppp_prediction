@@ -40,7 +40,7 @@ option_list = list(
               help = "Column name for log2 fold change", metavar = "xcol"),
   make_option(c("-y", "--ycol"), type = "character", default = "pvalue",
               help = "Column name for p-value", metavar = "ycol"),
-  make_option(c("--runfdr"), action = "store_true", default = TRUE,
+  make_option(c("--runfdr"), action = "store_true", default = FALSE,
               help = "Run FDR BH correction if TRUE"),
   make_option(c("--fdrcutoff"), type = "numeric", default = 0.05,
               help = "FDR cutoff value"),
@@ -62,10 +62,11 @@ opt = parse_args(opt_parser)
 # 读取数据
 df <- read.csv(opt$input, header = TRUE, sep = opt$delim)
 # 运行FDR校正
-if (!is.null(opt$runfdr)){
+if (opt$runfdr){
   df$padj <- p.adjust(df[[opt$ycol]], method = "BH")
   opt$ycol <- "padj"
-}
+} 
+
 
 # 设置调控方向
 df$regulate <- "Normal"
@@ -86,8 +87,10 @@ volcano_plot <- ggvolcano(df, x = opt$xcol, y = opt$ycol, x_lab = opt$xcol, y_la
           # colors = c("#e94234","#b4b4d8","#269846"),
 )
 
+x_bd = max(abs(df[[opt$xcol]]))
+x_bd_range = c(-x_bd, x_bd)
 
-volcano_plot <- volcano_plot + theme(plot.title = element_text(hjust = 0.5, size = 20, face = "bold", color = "red")) + labs(title = opt$title) 
+volcano_plot <- volcano_plot + theme(plot.title = element_text(hjust = 0.5, size = 20, face = "bold", color = "red")) + labs(title = opt$title)  + xlim(x_bd_range)
 # 根据后缀名保存图形
 
 

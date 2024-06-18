@@ -19,6 +19,7 @@ from ppp_prediction.MultiOmicsDiseasePrediction import (
     DataConfig,
     check_disease_dist,
 )
+from ppp_prediction.model import XGBoostModel, LinearModel
 def getParser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -99,8 +100,8 @@ if __name__ == "__main__":
         "modelConfig": modelconfig,
     }
 
-    mmconfig = Config["modelConfig"]["Meta"]
-    dataconfig = Config["omicsData"]["Meta"]
+    # mmconfig = Config["modelConfig"]["Meta"]
+    # dataconfig = Config["omicsData"]["Meta"]
     tgtconfig = Config["diseaseData"]
     phenoconfig = Config["phenosData"]
     testconfig = Config["heldOutData"]
@@ -169,7 +170,7 @@ if __name__ == "__main__":
         model_type = mmconfig['model']
         if isinstance(model_type, list):
             model_type = model_type[0]
-        if model_type == "lasso":
+        if model_type == "lasso" and len(cov) >1:
             LassoTrainTFPipline(
                 mmconfig=mmconfig,
                 dataconfig=dataconfig,
@@ -181,6 +182,32 @@ if __name__ == "__main__":
                 n_bootstrap=mmconfig.get("n_bootstrap", None),
                 n_jobs = n_jobs
             )
+        elif model_type in ['Lasso', 'ElasticNet', "Logistic", "Ridge"]:
+            LinearModel(
+                mmconfig=mmconfig,
+                dataconfig=dataconfig,
+                tgtconfig=tgtconfig,
+                phenoconfig=phenoconfig,
+                testdataconfig=testconfig,
+            ).run(
+                outputFolder=outputFolder,
+                model_name=model_type,
+                device="cuda",
+                n_threads=n_jobs,
+    )
+        elif model_type == "xgboost":
+            XGBoostModel(
+                mmconfig=mmconfig,
+                dataconfig=dataconfig,
+                tgtconfig=tgtconfig,
+                phenoconfig=phenoconfig,
+                testdataconfig=testconfig,
+            ).run(
+                outputFolder=outputFolder,
+                device="cuda",
+                n_threads=n_jobs,
+            )
+
         else:
             raise ValueError(f"Model type {model_type} not supported, only support lasso")
     print("Done!!!!!!")

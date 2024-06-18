@@ -122,6 +122,20 @@ standardize_func <- function(data, xvar = NULL, means = NULL, sds = NULL) {
   ))
 
 }
+cal_class_weight <- function(Y){
+  fraction_0 <- rep(1 - sum(Y == 0) / nrow(Y), sum(Y == 0))
+  fraction_1 <- rep(1 - sum(Y == 1) / nrow(Y), sum(Y == 1))
+  print(paste0("fraction_0: ", fraction_0[1]))
+  print(paste0("fraction_1: ", fraction_1[1]))
+  # assign that value to a "weights" vector
+  weights <- numeric(nrow(Y))
+
+  weights[Y == 0] <- fraction_0
+  weights[Y == 1] <- fraction_1
+
+  return(weights)
+}
+
 
 glmnet_lasso<-function(
   train,
@@ -139,6 +153,7 @@ glmnet_lasso<-function(
   coef_choice = "lambda.min",
   standardize  = TRUE,
   intercept = FALSE,
+  balance = TRUE, 
   parallel=TRUE
 ){
   # drop na
@@ -175,6 +190,14 @@ glmnet_lasso<-function(
     train_std = NULL
   }
 
+  if (balance){
+    print("balance weights")
+    weights <- cal_class_weight(train[, label])
+  }else{
+    print("no balance weights")
+    weights <- NULL
+  }
+
   print(sprintf("train data size: %d with featuers %d", nrow(train), length(used_fatures)))
 
   if (family == "cox") {
@@ -208,6 +231,7 @@ glmnet_lasso<-function(
     penalty.factor = p.fac,
     parallel = parallel,
     standardize = F,
+    weights = weights,
     intercept = intercept
   )
   }

@@ -153,6 +153,21 @@ def cal_residual(df, x: List, y: str, plus_mean=True, return_model=False):
 
 
 def generate_multipletests_result(df, pvalue_col='pvalue',alpha=0.05, method='fdr_bh'):
+    """
+        method : str
+        Method used for testing and adjustment of pvalues. Can be either the full name or initial letters. Available methods are:
+
+    bonferroni : one-step correction
+    sidak : one-step correction
+    holm-sidak : step down method using Sidak adjustments
+    holm : step-down method using Bonferroni adjustments
+    simes-hochberg : step-up method (independent)
+    hommel : closed method based on Simes tests (non-negative)
+    fdr_bh : Benjamini/Hochberg (non-negative)
+    fdr_by : Benjamini/Yekutieli (negative)
+    fdr_tsbh : two stage fdr correction (non-negative)
+    fdr_tsbky : two stage fdr correction (non-negative)
+    """
     df = df.copy() 
     pvalue_series = df[pvalue_col]
     reject, pvals_corrected, _, _ = multipletests(pvalue_series, alpha=alpha, method=method)

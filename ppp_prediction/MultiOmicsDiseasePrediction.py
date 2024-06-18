@@ -610,7 +610,7 @@ class LassoTrainTFPipline(object):
         dataconfig = self.dataconfig
         tgtconfig = self.tgtconfig
         phenoconfig = self.phenoconfig
-        outputFolder = Path(outputFolder)
+        outputFolder = Path(outputFolder) / "glmnet"
 
         label = tgtconfig.label
         diseaseData = tgtconfig.data
@@ -929,7 +929,8 @@ class LassoTrainTFPipline(object):
                 to_cal[label], to_cal["pred"], ci_kwargs={"n_resamples": 100}
             )
             test_metrics = {k: [v] for k, v in test_metrics.items()}
-            test_metrics_df = pd.DataFrame(test_metrics).T.sort_values(
+
+            test_metrics_df = pd.DataFrame(test_metrics).sort_values(
                 "AUC", ascending=False
             )
 
