@@ -49,9 +49,7 @@ def getParser():
     )
     parser.add_argument(
         "--gpu", action="store_true", help="use gpu", required=False, default=False
-
-
-
+    )
 
     return parser
 
