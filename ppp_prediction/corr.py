@@ -813,7 +813,9 @@ def cal_corr_v2(
             return res_series
 
         except Exception as e:
-            print(f"Error for x={x} and y={y} and model_type={model_type} with {str(e)[:100]}")
+            print(
+                f"Error for x={x} and y={y} and model_type={model_type} with {str(e)}"
+            )
 
             return pd.Series({
                 "var": x,

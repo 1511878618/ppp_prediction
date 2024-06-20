@@ -101,8 +101,6 @@ if __name__ == "__main__":
         "modelConfig": modelconfig,
     }
 
-    # mmconfig = Config["modelConfig"]["Meta"]
-    # dataconfig = Config["omicsData"]["Meta"]
     tgtconfig = Config["diseaseData"]
     phenoconfig = Config["phenosData"]
     testconfig = Config["heldOutData"]
@@ -168,6 +166,8 @@ if __name__ == "__main__":
     else:
         device = "cpu"
         print("Using CPU")
+
+    result_path_list = []
     for omics in Config["omicsData"].keys():
         assert omics in Config["modelConfig"].keys(), f"{omics} not in model config"
         mmconfig = Config["modelConfig"][omics]
@@ -176,6 +176,7 @@ if __name__ == "__main__":
 
         # model_type = mmconfig['model']
         omics_outputFolder = f"{outputFolder}/{omics}"
+        result_path_list.append(omics_outputFolder)
         model_list = mmconfig["model"]
         print(f"Totally {len(model_list)} models to run : {' '.join(model_list)}")
         if isinstance(model_list, str):
@@ -223,4 +224,36 @@ if __name__ == "__main__":
                 raise ValueError(
                     f"Model type {model_type} not supported, only support lasso"
                 )
+        # cal metrics of all methods
+        # metrics_list = []
+        train_metrics_list = []
+        test_metrics_list = []
+        for method_dir in omics_outputFolder.glob("*"):
+            label = tgtconfig.label
+            if method_dir.is_dir():
+                train_df = pd.read_csv(method_dir / "best_model_score_on_train.csv")
+                test_df = pd.read_csv(method_dir / "best_model_score_on_test.csv")
+
+                to_cal_train_df = train_df[[label, f"pred_{label}"]]
+                to_cal_test_df = test_df[[label, f"pred_{label}"]]
+
+                train_metrics = cal_binary_metrics(
+                    to_cal_train_df[label], to_cal_train_df[f"pred_{label}"]
+                )
+                test_metrics = cal_binary_metrics(
+                    to_cal_test_df[label], to_cal_test_df[f"pred_{label}"]
+                )
+
+                train_metrics["method"] = method_dir.name
+                test_metrics["method"] = method_dir.name
+
+                train_metrics_list.append(train_metrics)
+                test_metrics_list.append(test_metrics)
+
+        train_metrics_df = pd.DataFrame(train_metrics_list)
+        test_metrics_df = pd.DataFrame(test_metrics_list)
+
+        train_metrics_df.to_csv(omics_outputFolder / "train_metrics.csv", index=False)
+        test_metrics_df.to_csv(omics_outputFolder / "test_metrics.csv", index=False)
+
     print("Done!!!!!!")
