@@ -248,7 +248,8 @@ if __name__ == "__main__":
         # metrics_list = []
         train_metrics_list = []
         test_metrics_list = []
-        for method_dir in Path(omics_outputFolder).glob("*"):
+        omics_outputFolder = Path(omics_outputFolder)
+        for method_dir in omics_outputFolder.glob("*"):
             label = tgtconfig.label
             if method_dir.is_dir():
                 train_df = pd.read_csv(method_dir / "best_model_score_on_train.csv")
