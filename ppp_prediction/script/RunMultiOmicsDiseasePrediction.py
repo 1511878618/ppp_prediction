@@ -208,17 +208,36 @@ if __name__ == "__main__":
                     n_threads=n_jobs,
                 )
             elif model_type == "xgboost":
-                XGBoostModel(
-                    mmconfig=mmconfig,
-                    dataconfig=dataconfig,
-                    tgtconfig=tgtconfig,
-                    phenoconfig=phenoconfig,
-                    testdataconfig=testconfig,
-                ).run(
-                    outputFolder=omics_outputFolder,
-                    device=device,
-                    n_threads=n_jobs,
-                )
+                # try:
+                # first try gpu then cpu
+                try:
+                    XGBoostModel(
+                        mmconfig=mmconfig,
+                        dataconfig=dataconfig,
+                        tgtconfig=tgtconfig,
+                        phenoconfig=phenoconfig,
+                        testdataconfig=testconfig,
+                    ).run(
+                        outputFolder=omics_outputFolder,
+                        device="cuda",
+                        n_threads=n_jobs,
+                    )
+                except Exception as e:
+                    print(f"Error in gpu: {e}")
+                    try:
+                        XGBoostModel(
+                            mmconfig=mmconfig,
+                            dataconfig=dataconfig,
+                            tgtconfig=tgtconfig,
+                            phenoconfig=phenoconfig,
+                            testdataconfig=testconfig,
+                        ).run(
+                            outputFolder=omics_outputFolder,
+                            device="cpu",
+                            n_threads=n_jobs,
+                        )
+                    except Exception as e:
+                        print(f"Error in cpu: {e}")
 
             else:
                 raise ValueError(

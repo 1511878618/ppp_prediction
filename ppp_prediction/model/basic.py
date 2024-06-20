@@ -166,6 +166,14 @@ class BaseModel(object):
 
         # save model
         model_path = model_output_folder / "model.pkl"
+
+        try:
+
+            with open(model_output_folder / "best_models.pkl", "wb") as f:
+                pkl.dump(best_models, f)
+        except Exception as e:
+            print(f"Error in saving best_models {e}")
+
         with open(model_path, "wb") as f:
             pkl.dump(model, f)
 
