@@ -67,7 +67,9 @@ class LinearModel(BaseModel):
         models_params = {
             "Logistic": {
                 "model": LogisticRegression(
-                    solver="qn", random_state=42, class_weight="balanced"
+                    solver="lbfgs" if device == "cpu" else "qn",
+                    random_state=42,
+                    class_weight="balanced",
                 ),
                 "param_grid": {
                     "C": np.logspace(-4, 4, 10),  # C参数的范围，使用对数间隔

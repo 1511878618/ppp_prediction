@@ -246,6 +246,7 @@ if __name__ == "__main__":
                 )
         # cal metrics of all methods
         # metrics_list = []
+        print(f"Calculating metrics for {omics}")
         train_metrics_list = []
         test_metrics_list = []
         omics_outputFolder = Path(omics_outputFolder)
