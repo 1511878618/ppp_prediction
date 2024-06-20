@@ -1,4 +1,3 @@
-from cuml.linear_model import LogisticRegression, Ridge, Lasso, ElasticNet
 from sklearn.model_selection import GridSearchCV
 from ppp_prediction.plot import save_fig
 from sklearn.pipeline import Pipeline
@@ -49,9 +48,18 @@ class LinearModel(BaseModel):
         """
         for binary classification
         """
+        if device == "cuda":
+            from cuml.linear_model import LogisticRegression, Ridge, Lasso, ElasticNet
+        else:
+            from sklearn.linear_model import (
+                LogisticRegression,
+                Ridge,
+                Lasso,
+                ElasticNet,
+            )
+
         if hasattr(self, "modelname"):
             modelname = self.modelname
-
         print(f"Runing {modelname},using device: {device} with {n_threads} threads")
 
         print(f"Using device: {device} with {n_threads} threads")
