@@ -813,18 +813,19 @@ def cal_corr_v2(
             return res_series
 
         except Exception as e:
-            print(
-                f"Error for x={x} and y={y} and model_type={model_type} with {str(e)}"
-            )
+            # print(
+            #     f"Error for x={x} and y={y} and model_type={model_type} with {str(e)}"
+            # )
 
-            return pd.Series({
-                "var": x,
-                "exposure": y,
-                "model": model_type,
-                "adjust_cov":1 if adjust else 0,
-                "norm_x": norm_x,
+            # return pd.Series({
+            #     "var": x,
+            #     "exposure": y,
+            #     "model": model_type,
+            #     "adjust_cov":1 if adjust else 0,
+            #     "norm_x": norm_x,
                 
-            })
+            # })
+            raise e
 
     else:
         raise ValueError("x and y  and model_type should be all str or list of str," + f"but is {type(x)}, {type(y)}, {type(model_type)}"+"not support for other type")
