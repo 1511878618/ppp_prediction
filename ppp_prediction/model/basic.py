@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import pickle as pkl
 import pandas as pd
@@ -117,6 +116,9 @@ class BaseModel(object):
         model_output_folder = Path(outputFolder) / modelname
         model_output_folder.mkdir(parents=True, exist_ok=True)
         print(f"Output folder: {model_output_folder}")
+        if (model_output_folder / "best_model_score_on_train.csv").exists():
+            print("Model has been run, skip")
+            return
 
         # prepare data
         if train is None or test is None:
