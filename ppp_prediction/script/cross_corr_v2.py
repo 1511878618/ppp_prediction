@@ -418,7 +418,7 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
 
 
 if __name__ == "__main__":
-    # input , currently only supported for two files 
+    # input , currently only supported for two files
     parser = getParser()
     args = parser.parse_args()
 
@@ -436,7 +436,7 @@ if __name__ == "__main__":
     key_cols_used = args.key_cols
     verbose = args.verbose
     timing = Timing()
-    # # confilict params check 
+    # # confilict params check
     # if method not in ["logistic", "linear", "glm"]:
     #     if cond_path or len(cond_cols_used) > 0:
     #         raise ValueError("confounding only supported for logistic and linear method")
@@ -450,18 +450,17 @@ if __name__ == "__main__":
         cond_path = cond_path, 
         cond_cols = cond_cols_used
     )
-
+    # print(main_df)
     corr_results_df = cal_corr_v2(
         df=main_df,
         x=col_dict["query_cols"],
         y=col_dict["key_cols"],
         cofounder=col_dict["cond_cols"],
         adjust=adjust,
-        norm_x = norm_x,
+        norm_x=norm_x,
         model_type=method,
         threads=threads,
-        verbose=verbose
-
+        verbose=verbose,
     )
 
     if Path(output).parent.exists() is False:
@@ -475,9 +474,8 @@ if __name__ == "__main__":
 
     print(f"总共消耗{timing():.2f}s")
 
-
     # if lowmem: # save to local tmp file and read while running
-    #     parts_df = [] 
+    #     parts_df = []
     #     tmp_dir = Path(output).parent
     #     print(f"--lowmem ， 采用低内存模式，将会保存中间文件到本地，可能会占用大量磁盘空间，保存在该路径下：{str(tmp_dir)}")
 
@@ -494,23 +492,22 @@ if __name__ == "__main__":
     #     else:
     #         parts_df = [main_df[parts_col + key_cols].copy() for parts_col in average_list(query_cols, threads)]  # [part1_df, part2_df, ....]
 
-    # del query_df  # clear for memory 
+    # del query_df  # clear for memory
     # del main_df # clear for memory
 
-
-    # # TODO: support for regression method 
+    # # TODO: support for regression method
     # if cond_path:
     #     cal_corrs_multiprocess = partial(cross_corrs, key_cols = key_cols, method=method, cond_cols=cond_cols)
     # else:
     #     cal_corrs_multiprocess = partial(cross_corrs, key_cols = key_cols, method=method)
 
-    # with Pool(threads) as p: 
+    # with Pool(threads) as p:
     #     res = p.map(cal_corrs_multiprocess, parts_df)
 
     # corr_results_df = pd.concat(res).reset_index(drop=True)
     # corr_results_df = generate_multipletests_result(corr_results_df, pvalue_col="pvalue", alpha=0.05, method="fdr_bh")
-    # if lowmem: 
+    # if lowmem:
     #     for tmp_path in parts_df:
     #         os.remove(tmp_path)
 
-    # save files 
+    # save files

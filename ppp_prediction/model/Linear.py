@@ -67,7 +67,7 @@ class LinearModel(BaseModel):
         models_params = {
             "Logistic": {
                 "model": LogisticRegression(
-                    solver="lbfgs" if device == "cpu" else "qn",
+                    solver="liblinear" if device == "cpu" else "qn",
                     random_state=42,
                     class_weight="balanced",
                 ),

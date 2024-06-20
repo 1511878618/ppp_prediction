@@ -95,6 +95,7 @@ class XGBoostModel(BaseModel):
         print(grid_search.best_params_)
 
         best_model = grid_search.best_estimator_
+        best_model.set_params(device="cpu")
 
         train_pred = best_model.predict_proba(train[X_var])[:, 1]
         test_pred = best_model.predict_proba(test[X_var])[:, 1]
