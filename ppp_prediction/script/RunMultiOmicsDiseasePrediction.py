@@ -19,6 +19,7 @@ from ppp_prediction.MultiOmicsDiseasePrediction import (
     DataConfig,
     check_disease_dist,
 )
+from ppp_prediction.metrics import cal_binary_metrics
 from ppp_prediction.model import XGBoostModel, LinearModel
 def getParser():
     parser = argparse.ArgumentParser(
@@ -247,7 +248,7 @@ if __name__ == "__main__":
         # metrics_list = []
         train_metrics_list = []
         test_metrics_list = []
-        for method_dir in omics_outputFolder.glob("*"):
+        for method_dir in Path(omics_outputFolder).glob("*"):
             label = tgtconfig.label
             if method_dir.is_dir():
                 train_df = pd.read_csv(method_dir / "best_model_score_on_train.csv")
