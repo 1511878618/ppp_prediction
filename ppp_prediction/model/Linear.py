@@ -85,8 +85,8 @@ class LinearModel(BaseModel):
             "ElasticNet": {
                 "model": ElasticNet(),
                 "param_grid": {
-                    "alpha": np.logspace(-4, 4, 10),
-                    "l1_ratio": np.linspace(0, 1, 10),
+                    "alpha": np.logspace(-4, 2, 5),
+                    "l1_ratio": np.linspace(0, 1, 5),
                 },
             },
             "Ridge": {
