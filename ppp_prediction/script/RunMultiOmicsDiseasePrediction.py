@@ -266,10 +266,10 @@ if __name__ == "__main__":
                 to_cal_test_df = test_df[[label, f"pred_{label}"]]
 
                 train_metrics = cal_binary_metrics(
-                    to_cal_train_df[label], to_cal_train_df[f"pred_{label}"]
+                    to_cal_train_df[label], to_cal_train_df[f"pred_{label}"], ci=True
                 )
                 test_metrics = cal_binary_metrics(
-                    to_cal_test_df[label], to_cal_test_df[f"pred_{label}"]
+                    to_cal_test_df[label], to_cal_test_df[f"pred_{label}"], ci=True
                 )
 
                 train_metrics["method"] = method_dir.name
