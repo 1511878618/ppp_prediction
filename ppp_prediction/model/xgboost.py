@@ -35,7 +35,7 @@ class XGBoostModel(BaseModel):
         param_grid=None,
         device="cuda",
         n_threads=4,
-        n_iter=100,
+        n_iter=25,
         **kwargs,
     ):
         """
