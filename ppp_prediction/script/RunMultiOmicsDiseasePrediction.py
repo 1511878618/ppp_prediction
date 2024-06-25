@@ -212,17 +212,23 @@ if __name__ == "__main__":
                 # try:
                 # first try gpu then cpu
                 # try:
-                XGBoostModel(
-                    mmconfig=mmconfig,
-                    dataconfig=dataconfig,
-                    tgtconfig=tgtconfig,
-                    phenoconfig=phenoconfig,
-                    testdataconfig=testconfig,
-                ).run(
-                    outputFolder=omics_outputFolder,
-                    device=device,
-                    n_threads=n_jobs,
-                )
+                for device in ["cuda", "cpu"]:
+                    try:
+                        XGBoostModel(
+                            mmconfig=mmconfig,
+                            dataconfig=dataconfig,
+                            tgtconfig=tgtconfig,
+                            phenoconfig=phenoconfig,
+                            testdataconfig=testconfig,
+                        ).run(
+                            outputFolder=omics_outputFolder,
+                            device=device,
+                            n_threads=n_jobs,
+                        )
+                        break 
+                    except MemoryError as e:
+                        print(f"MemoryError in {device}: {e}\n will try another device")
+                        continue
                 # except Exception as e:
                 #     print(f"Error in gpu: {e}")
                 #     try:
