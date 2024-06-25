@@ -755,11 +755,11 @@ def cal_corr_v2(
             used_df = df[[x, y] + cofounder].copy().dropna(how="any")
 
             # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them
-            for col in cofounder:
-                if used_df[col].nunique() <= 1:
-                    used_df.drop(col, axis=1, inplace=True)
-                    cofounder.remove(col)
-                    print(f"drop {col} as binary variable without variance")
+            # for col in cofounder:
+            #     if used_df[col].nunique() <= 1:
+            #         used_df.drop(col, axis=1, inplace=True)
+            #         cofounder.remove(col)
+            #         print(f"drop {col} as binary variable without variance")
             # to add 哑变量
 
             if norm_x == "zscore":
