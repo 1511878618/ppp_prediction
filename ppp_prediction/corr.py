@@ -858,6 +858,9 @@ def cal_corr_v2(
                             formula,
                             data=used_df,
                         ).fit_regularized(**fit_params)
+                        pvalue = model.pvalues[x_str]
+                        if np.isnan(pvalue):
+                            continue
                         status = 1
                         break
                     except Exception as e:
@@ -868,7 +871,7 @@ def cal_corr_v2(
 
                 y_pred = model.predict(X)
                 metrics = cal_binary_metrics(Y, y_pred)
-                metrics["fit_params"] = str(fit_params)
+                # metrics["fit_params"] = str(fit_params)
             else:
                 raise ValueError(f"model_type {model_type} not supported")
 
@@ -921,7 +924,7 @@ def cal_corr_v2(
                 result.update({"N": used_df.shape[0]})
             else:
                 result.update({"N": used_df.shape[0]})
-
+            result["fit_params"] = fit_params
             res_series = pd.Series(result)
             return res_series
 
