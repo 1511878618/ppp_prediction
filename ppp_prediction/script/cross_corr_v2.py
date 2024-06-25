@@ -114,135 +114,6 @@ def rank_to_normal(rank, c, n):
     return ss.norm.ppf(x)
 
 
-# rank_INT end
-
-
-# def cal_pearsonr(x, y):
-#     try:
-#         r, p = pearsonr(x, y)
-#     except:
-#         r, p = None, None
-#     return {"r":r, "pvalue":p}
-
-
-# def logistic_regression(data, x, y, confounding=None):
-#     # Define the independent variables (X) and the dependent variable (y)
-#     if confounding:
-#         if not isinstance(confounding, list):
-#             confounding = [confounding]
-
-
-#     x_counfound = [x] + confounding if confounding else [x]
-
-#     # drop na
-#     # print(x, y, confounding)
-#     # data = data.dropna(subset=x_counfound + [y], how="any").reset_index(drop=True)
-#     used_cols = x_counfound + [y]
-#     data = data[used_cols].dropna(how="any").reset_index(drop=True)
-#     print(f"x is {x} and y is {y}, confounding is {confounding}; after dropna, keep {data.shape[0]} rows in analysis.")
-
-#     if confounding:
-#         print(f"x is {x} and y is {y} with conditional: {','.join(confounding)} and shape is {data.shape}")
-#     else:
-#         print(f"x is {x} and y is {y} and shape is {data.shape}")
-#     N = data.shape[0]
-#     N_case = data[y].sum()
-#     N_control = N - N_case
-
-#     X = data[x_counfound]
-#     y = data[y]
-
-#     # Add a constant term to the independent variables
-#     X = sm.add_constant(X)
-
-#     # Fit the logistic regression model
-#     model = sm.Logit(y, X)
-#     try:
-#         result = model.fit()
-#         model.fit_regularized()
-
-#         # Get the beta coefficients
-#         beta = result.params
-
-#         # Get the p-values of the coefficients
-#         p_values = result.pvalues
-
-#         return {"beta": beta[x], "pvalue":p_values[x], "N":N, "N_case" : N_case, "N_control" : N_control}
-#     except:
-#         return {"beta": None, "pvalue":None, "N":None, "N_case":None, "N_control":None}
-
-# def linear(data, x, y, confounding=None):
-#     # Define the independent variables (X) and the dependent variable (y)
-#     if confounding:
-#         if not isinstance(confounding, list):
-#             confounding = [confounding]
-
-#     x_counfound = [x] + confounding if confounding else [x]
-
-#     # drop na
-#     data = data.dropna(subset=x_counfound + [y], how="any").reset_index(drop=True)
-#     print(f"x is {x} and y is {y}, confounding is {confounding}; after dropna, keep {data.shape[0]} rows in analysis.")
-#     N = data.shape[0]
-#     X = data[x_counfound]
-#     y = data[y]
-
-#     # Add a constant term to the independent variables
-#     X = sm.add_constant(X)
-
-#     # Fit the logistic regression model
-#     model = sm.OLS(y, X, )
-
-
-#     result = model.fit()
-
-#     # Get the beta coefficients
-#     beta = result.params
-
-#     # Get the p-values of the coefficients
-#     p_values = result.pvalues
-
-#     return {"beta": beta[x], "pvalue":p_values[x], "N":N}
-#     # except:
-#     #     return {"beta": None, "pvalue":None}
-
-
-# def cal_corrs(data, x, y, method, cond_cols=None):
-#     if method == "pearson":
-#         tmp_data = data[[x, y]].dropna()
-#         return cal_pearsonr(tmp_data[x], tmp_data[y])
-#     elif method == "logistic":
-#         return logistic_regression(data, x, y, cond_cols)
-#     elif method == "linear":
-#         return linear(data, x, y, cond_cols)
-#     else:
-#         return NotImplementedError(f"method {method} not supported yet")
-
-
-# def cross_corrs(main_df, query_cols,key_cols, method="pearson", cond_cols=None):
-#     """
-#     main_df cols is equal: [query_cols, key_cols]
-#     so query_cols = main_df.columns - key_cols
-
-#     will combination between query_cols and key_cols
-
-#     return: pd.DataFrame
-
-#     """
-#     res = []
-#     if isinstance(main_df, str): # read tmp_part_file_path
-#         main_df = read_data(main_df)
-
-#     # query_cols = list(set(main_df.columns) - set(key_cols)) if cond_cols is None else list(set(main_df.columns) - set(key_cols) - set(cond_cols)) # main_df.columns - key_cols => query_cols
-
-#     for query_col in query_cols: # query
-#         for key_col in key_cols: # key
-
-#             corr_dict = cal_corrs(data = main_df, x= query_col, y=key_col, method = method, cond_cols = cond_cols)
-#             res.append({**{"query":query_col, "key":key_col} , **corr_dict})
-
-#     return pd.DataFrame(res)
-
-
 def read_data(path:str):
     """
     for pickle or csv files only 
@@ -292,6 +163,7 @@ def getParser():
     # main params
     parser.add_argument("-q", "--query", dest="query", help="query file path", required=True)
     parser.add_argument("--query_cols", dest="query_cols", help="query cols to cal corrs, default all cols of query", required=False, nargs="+", default=[])
+    # parser.add_argument("query_cat_cols", dest="query_cat_cols", help="cat cols in query file", required=False, nargs="+", default=[])
 
     parser.add_argument("-k", "--key", dest="key", help="key file path", required=True)
     parser.add_argument("--key_cols", dest="key_cols", help="key cols to cal corrs, default all cols of key", required=False, nargs="+", default=[])
@@ -302,6 +174,14 @@ def getParser():
 
     parser.add_argument("--cond", dest="cond_path", help="confounding file path, should be as same as q and k and used with --method linear or logistic", required=False)
     parser.add_argument("--cond_cols", dest= "cond_cols", help="confounding cols, should be in cond_path files", required=False, nargs="+", default=[])
+    parser.add_argument(
+        "--cat_cond_cols",
+        dest="cat_cond_cols",
+        help="cat cols in cond file",
+        required=False,
+        nargs="+",
+        default=[],
+    )
 
     parser.add_argument("-m", "--method", dest="method", default="auto", required=False, choices=["glm", "ols", "logistic", "auto"]) # may supported for multiple method
     # parser.add_argument("--lowmem", action="store_true", dest="lowmem", help="low memory for cal")
@@ -386,12 +266,8 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
 
     msg = f"query_col have {len(query_cols)} cols and first 5 cols are {query_cols[:5]}\nkey_col have {len(key_cols)} cols and first 5 cols are {key_cols[:5]}\n" 
 
-    if len(cond_cols) == 0:
-        msg += f"cond_col have {len(cond_cols)} cols and first 5 cols are {cond_cols[:5]}\n"
 
-    msg += f"Total shape is {main_df.shape}"
-    print(msg)
-
+    # filter cov 
     for col in query_cols:
         try:
             main_df[col] = main_df[col].astype(float)
@@ -414,7 +290,18 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
                 main_df.drop(col, axis=1, inplace=True)
                 cond_cols.remove(col)
 
-    return main_df, {"query_cols":query_cols, "key_cols":key_cols, "cond_cols":cond_cols}
+    if len(cond_cols) > 0:
+        cat_cond_cols = [col for col in cond_cols if col in cat_cond_cols]
+        cond_cols = [col for col in cond_cols if col not in cat_cond_cols]
+        if len(cat_cond_cols) > 0:
+            msg += f"cat_cond_col have {len(cat_cond_cols)} cols and first 5 cols are {cat_cond_cols[:5]}\n"
+        if len(cond_cols) > 0:
+            msg += f"cond_col have {len(cond_cols)} cols and first 5 cols are {cond_cols[:5]}\n"
+
+    msg += f"Total shape is {main_df.shape}"
+    print(msg)
+
+    return main_df, {"query_cols":query_cols, "key_cols":key_cols, "cond_cols":cond_cols, "cat_cond_cols":cat_cond_cols}
 
 
 if __name__ == "__main__":
@@ -432,7 +319,7 @@ if __name__ == "__main__":
     # lowmem = args.lowmem
     adjust = args.adjust
     cond_path = args.cond_path
-    cond_cols_used = args.cond_cols # [Age, Sex]....
+    # cond_cols_used = args.cond_cols # [Age, Sex]....
     key_cols_used = args.key_cols
     verbose = args.verbose
     timing = Timing()
@@ -442,6 +329,8 @@ if __name__ == "__main__":
     #         raise ValueError("confounding only supported for logistic and linear method")
 
     # read data
+    cond_cols_used = args.cond_cols + args.cat_cond_cols # cond_cols + cat_cond_cols
+    cat_cond_cols = args.cat_cond_cols
     main_df, col_dict = parse_input_data(
         query_path = query_path, 
         key_path = key_path, 
@@ -451,11 +340,14 @@ if __name__ == "__main__":
         cond_cols = cond_cols_used
     )
     # print(main_df)
+
     corr_results_df = cal_corr_v2(
         df=main_df,
         x=col_dict["query_cols"],
         y=col_dict["key_cols"],
-        cofounder=col_dict["cond_cols"],
+        # cofounder=col_dict["cond_cols"],
+        cov=col_dict["cond_cols"],
+        cat_cov=col_dict["cat_cond_cols"],
         adjust=adjust,
         norm_x=norm_x,
         model_type=method,

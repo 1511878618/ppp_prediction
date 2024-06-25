@@ -630,7 +630,7 @@ def cal_corr_v2(
     norm_x=None,
     model_type: Union[str, List[str]] = "glm",
     threads: int = 4,
-    family=sm.families.Gaussian(),
+    # family=sm.families.Gaussian(),
     verbose=False,
     fit_params=None,
 ):
@@ -697,7 +697,7 @@ def cal_corr_v2(
                     norm_x,
                     current_model_type,
                     threads,
-                    family,
+                    # family,
                     verbose,
                     fit_params,
                 )
@@ -722,7 +722,7 @@ def cal_corr_v2(
                     norm_x,
                     current_model_type,
                     1,
-                    family,
+                    # family,
                     verbose,
                     fit_params,
                 )
