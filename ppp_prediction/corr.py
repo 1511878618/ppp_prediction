@@ -66,7 +66,7 @@ from sklearn.metrics import (
 )
 from scipy.stats import pearsonr, spearmanr
 import scipy.stats as ss
-
+import warnings
 
 def rank_INT(series, c=3.0/8, stochastic=True):
     """ Perform rank-based inverse normal transformation on pandas series.
@@ -536,7 +536,7 @@ def cal_corr_multivar_v2(
     if isinstance(x, str):
         x = [x]
     used_df = df[x + [y] + cofounder].copy().dropna(how="any")
-    # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them 
+    # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them
     for col in cofounder:
         if used_df[col].nunique() <= 1:
             used_df.drop(col, axis=1, inplace=True)
@@ -613,23 +613,26 @@ def cal_corr_multivar_v2(
         model_res["n_control"] = used_df.shape[0] - used_df[y].sum()
     else:
         model_res["N"] = used_df.shape[0]
-    
+
     for k, v in metrics.items():
         model_res[k] = v
 
     return model_res.iloc[1:, :], metrics  # drop intercept
 
+
 def cal_corr_v2(
-        df:DataFrame,
-        x:Union[str, List[str]],
-        y:Union[str, List[str]],
-        cofounder:Union[str, List[str]]=None,
-        adjust:bool=False,
-        norm_x=None,
-        model_type:Union[str, List[str]]="glm",
-        threads:int=4,
-        family=sm.families.Gaussian(),
-        verbose = False,
+    df: DataFrame,
+    x: Union[str, List[str]],
+    y: Union[str, List[str]],
+    cov: Union[str, List[str]] = None,
+    cat_cov: Union[str, List[str]] = None,
+    adjust: bool = False,
+    norm_x=None,
+    model_type: Union[str, List[str]] = "glm",
+    threads: int = 4,
+    family=sm.families.Gaussian(),
+    verbose=False,
+    fit_params=None,
 ):
     """
     Calculate the correlation between variables x and y in the given DataFrame.
@@ -662,11 +665,48 @@ def cal_corr_v2(
             x = [x]
         if isinstance(y, str):
             y = [y]
+        if isinstance(cov, str):
+            cov = [cov]
+        elif cov is None:
+            cov = []
+        if isinstance(cat_cov, str):
+            cat_cov = [cat_cov]
+        elif cat_cov is None:
+            cat_cov = []
+
+        cofounder = cov + cat_cov
+        if len(cofounder) == 0:
+            cofounder = None
 
         x_y_model_combination = list(product(x, y, model_type))
         print(f"total {len(x_y_model_combination)} combination of  to cal by threads {threads}")
+
+        cofounder = cov + cat_cov
+        if len(cofounder) == 0:
+            cofounder = None
+
         if threads ==1:
-            res = [cal_corr_v2(df[[x, y] + cofounder], x, y, cofounder,adjust,norm_x, current_model_type, threads, family,verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs")]
+            res = [
+                cal_corr_v2(
+                    df[[x, y] + cofounder],
+                    x,
+                    y,
+                    cov,
+                    cat_cov,
+                    adjust,
+                    norm_x,
+                    current_model_type,
+                    threads,
+                    family,
+                    verbose,
+                    fit_params,
+                )
+                for x, y, current_model_type in tqdm(
+                    x_y_model_combination,
+                    total=len(x_y_model_combination),
+                    desc="cal corrs",
+                )
+            ]
 
         else:
             from joblib import Parallel, delayed
@@ -676,13 +716,15 @@ def cal_corr_v2(
                     df[[x, y] + cofounder],
                     x,
                     y,
-                    cofounder,
+                    cov,
+                    cat_cov,
                     adjust,
                     norm_x,
                     current_model_type,
                     1,
                     family,
                     verbose,
+                    fit_params,
                 )
                 for x, y, current_model_type in x_y_model_combination
             )
@@ -691,10 +733,19 @@ def cal_corr_v2(
 
     elif isinstance(x, str) and isinstance(y, str) and isinstance(model_type, str):
         try:
-            if cofounder is not None:
-                cofounder = [cofounder] if isinstance(cofounder, str) else cofounder
-            else:
-                cofounder = []
+            if isinstance(cov, str):
+                cov = [cov]
+            elif cov is None:
+                cov = []
+            if isinstance(cat_cov, str):
+                cat_cov = [cat_cov]
+            elif cat_cov is None:
+                cat_cov = []
+
+            cofounder = cov + cat_cov
+            if len(cofounder) == 0:
+                cofounder = None
+
             if threads >1:
                 print(f"threads is {threads} and x is {x} and y is {y}, which is str, so don't supported for multi threads")
 
@@ -739,23 +790,55 @@ def cal_corr_v2(
                 raise ValueError(
                     "adjust not support for logistic model, so use ols or glm instead"
                 )
+            if fit_params is None:
+                fit_params = {}
+
+            import statsmodels.formula.api as smf
+
+            cov_str = " + ".join(cov)
+            cat_cov_str = " + ".join([f"C({col})" for col in cat_cov])
+            formula = f"{y} ~ {x} + {cov_str} + {cat_cov_str}"
 
             if model_type == "glm":
-                model = sm.GLM(Y, X, family=family).fit()
+
+                default_fit_params = {"disp": False}
+                for k in default_fit_params:
+                    if k not in fit_params:
+                        fit_params[k] = default_fit_params[k]
+
+                # model = sm.GLM(Y, X, family=family).fit(**fit_params)
+                model = smf.glm(
+                    formula,
+                    data=used_df,
+                ).fit(**fit_params)
                 y_pred = model.predict(X)
                 metrics = cal_qt_metrics(Y, y_pred)
 
                 # metrics = {"Persudo_R2": model.pseudo_rsquared()}
                 # metrics.update(cal_qt_metrics(Y, y_pred))
-            elif model_type == "ols":
-                model = sm.OLS(Y, X).fit()
-                y_pred = model.predict(X)
+            # elif model_type == "ols":
+            #     model = sm.OLS(Y, X).fit(**fit_params)
+            #     y_pred = model.predict(X)
 
-                # metrics = {"Persudo_R2": model.pseudo_rsquared()}
-                # metrics.update(cal_qt_metrics(Y, y_pred))
-                metrics = cal_qt_metrics(Y, y_pred)
+            #     # metrics = {"Persudo_R2": model.pseudo_rsquared()}
+            #     # metrics.update(cal_qt_metrics(Y, y_pred))
+            #     metrics = cal_qt_metrics(Y, y_pred)
             elif model_type == "logistic":
-                model = sm.Logit(Y, X).fit(maxiter=1000)
+                # fit_params.update({"maxiter": 100})
+
+                # default_fit_params = dict(
+                #     method="l1", alpha=0.1, disp=0, trim_mode="size", qc_verbose=0
+                # )
+                default_fit_params = {}
+                for k in default_fit_params:
+                    if k not in fit_params:
+                        fit_params[k] = default_fit_params[k]
+
+                # model = sm.Logit(Y, X).fit(**fit_params)
+                model = smf.logit(
+                    formula,
+                    data=used_df,
+                ).fit_regularized(**fit_params)
                 y_pred = model.predict(X)
                 metrics = cal_binary_metrics(Y, y_pred)
             else:
@@ -824,6 +907,7 @@ def cal_corr_v2(
                     "model": model_type,
                     "adjust_cov": 1 if adjust else 0,
                     "norm_x": norm_x,
+                    "error": str(e),
                 }
             )
             # raise e
