@@ -191,7 +191,15 @@ def getParser():
     return parser
 
 
-def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond_path=None, cond_cols=None):
+def parse_input_data(
+    query_path,
+    key_path,
+    query_cols=None,
+    key_cols=None,
+    cond_path=None,
+    cond_cols=None,
+    cat_cond_cols=None,
+):
 
     query_df = load_data(query_path)
     key_df = load_data(key_path)
@@ -266,8 +274,7 @@ def parse_input_data(query_path, key_path, query_cols=None,  key_cols=None, cond
 
     msg = f"query_col have {len(query_cols)} cols and first 5 cols are {query_cols[:5]}\nkey_col have {len(key_cols)} cols and first 5 cols are {key_cols[:5]}\n" 
 
-
-    # filter cov 
+    # filter cov
     for col in query_cols:
         try:
             main_df[col] = main_df[col].astype(float)
@@ -329,15 +336,16 @@ if __name__ == "__main__":
     #         raise ValueError("confounding only supported for logistic and linear method")
 
     # read data
-    cond_cols_used = args.cond_cols + args.cat_cond_cols # cond_cols + cat_cond_cols
+    cond_cols = args.cond_cols + args.cat_cond_cols
     cat_cond_cols = args.cat_cond_cols
     main_df, col_dict = parse_input_data(
-        query_path = query_path, 
-        key_path = key_path, 
-        query_cols = args.query_cols, 
-        key_cols = args.key_cols, 
-        cond_path = cond_path, 
-        cond_cols = cond_cols_used
+        query_path=query_path,
+        key_path=key_path,
+        query_cols=args.query_cols,
+        key_cols=args.key_cols,
+        cond_path=cond_path,
+        cond_cols=cond_cols,
+        cat_cond_cols=cat_cond_cols,
     )
     # print(main_df)
 

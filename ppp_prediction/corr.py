@@ -32,6 +32,7 @@ from sklearn.metrics import (
 )
 from scipy.stats import pearsonr, spearmanr
 import scipy.stats as ss
+import statsmodels.formula.api as smf
 
 import pandas as pd
 from sklearn.metrics import (
@@ -746,8 +747,10 @@ def cal_corr_v2(
             if len(cofounder) == 0:
                 cofounder = None
 
-            if threads >1:
-                print(f"threads is {threads} and x is {x} and y is {y}, which is str, so don't supported for multi threads")
+            if threads > 1:
+                print(
+                    f"threads is {threads} and x is {x} and y is {y}, which is str, so don't supported for multi threads"
+                )
 
             used_df = df[[x, y] + cofounder].copy().dropna(how="any")
 
@@ -782,7 +785,9 @@ def cal_corr_v2(
                     else:
                         model_type = "glm"
 
-                    print(f"auto model selection for x={x} and y={y} with model_type={model_type}")
+                    print(
+                        f"auto model selection for x={x} and y={y} with model_type={model_type}"
+                    )
                 else:
                     raise ValueError("auto model selection not support for adjust=True")
 
@@ -793,11 +798,12 @@ def cal_corr_v2(
             if fit_params is None:
                 fit_params = {}
 
-            import statsmodels.formula.api as smf
-
             cov_str = " + ".join(cov)
             cat_cov_str = " + ".join([f"C({col})" for col in cat_cov])
-            formula = f"{y} ~ {x} + {cov_str} + {cat_cov_str}"
+            y_str = f"Q('{y}')" if " " in y else f"{y}"
+            x_str = f"Q('{x}')"
+
+            formula = f"{y_str} ~ {x_str} + {cov_str} + {cat_cov_str}"
 
             if model_type == "glm":
 
@@ -825,22 +831,44 @@ def cal_corr_v2(
             #     metrics = cal_qt_metrics(Y, y_pred)
             elif model_type == "logistic":
                 # fit_params.update({"maxiter": 100})
+                # Reason: some params may not found solve, so try many
+                fit_params_list = [
+                    *[
+                        dict(
+                            method="l1",
+                            alpha=alpha,
+                        )
+                        for alpha in [0, 0.05, 0.1, 0.2, 0.3]
+                    ],
+                    *[
+                        dict(
+                            method="l1",
+                            alpha=alpha,
+                            disp=0,
+                            trim_mode="size",
+                            qc_verbose=0,
+                        )
+                        for alpha in [0.1, 0.2]
+                    ],
+                ]
+                status = 0
+                for fit_params in fit_params_list:
+                    try:
+                        model = smf.logit(
+                            formula,
+                            data=used_df,
+                        ).fit_regularized(**fit_params)
+                        status = 1
+                        break
+                    except Exception as e:
+                        print(f"error for {fit_params} with {str(e)}")
+                        continue
+                if status == 0:
+                    raise ValueError(f"all fit_params not work")
 
-                # default_fit_params = dict(
-                #     method="l1", alpha=0.1, disp=0, trim_mode="size", qc_verbose=0
-                # )
-                default_fit_params = {}
-                for k in default_fit_params:
-                    if k not in fit_params:
-                        fit_params[k] = default_fit_params[k]
-
-                # model = sm.Logit(Y, X).fit(**fit_params)
-                model = smf.logit(
-                    formula,
-                    data=used_df,
-                ).fit_regularized(**fit_params)
                 y_pred = model.predict(X)
                 metrics = cal_binary_metrics(Y, y_pred)
+                metrics["fit_params"] = str(fit_params)
             else:
                 raise ValueError(f"model_type {model_type} not supported")
 
@@ -855,19 +883,21 @@ def cal_corr_v2(
                         "P>|z|": "pvalue",
                         "[0.025": "lower_ci",
                         "0.975]": "upper_ci",
-                    }
+                    },
+                    index={x_str: x},
                 )
                 .loc[x]
                 .to_dict()
             )
+
             result = {
                 "var": x,
                 "exposure": y,
                 "model": model_type,
-                "adjust_cov":1 if adjust else 0,
+                "adjust_cov": 1 if adjust else 0,
                 "norm_x": norm_x,
-                "pvalue": model.pvalues[x],
-                "coef": model.params[x],
+                "pvalue": model.pvalues[x_str],
+                "coef": model.params[x_str],
                 "std": model_res["std"],
                 "z": model_res["z"] if "z" in model_res else None,
                 "upper": model_res["upper_ci"],
@@ -875,11 +905,11 @@ def cal_corr_v2(
             }
 
             if model_type == "logistic":
-                result['OR'] = np.exp(result['coef'])
-                result['OR_UCI'] = np.exp(result['upper'])
-                result['OR_LCI'] = np.exp(result['lower'])
+                result["OR"] = np.exp(result["coef"])
+                result["OR_UCI"] = np.exp(result["upper"])
+                result["OR_LCI"] = np.exp(result["lower"])
 
-            if len(cofounder) <=0:
+            if len(cofounder) <= 0:
                 result.update(metrics)
 
             if len(used_df[y].unique()) <= 2:
@@ -907,7 +937,7 @@ def cal_corr_v2(
                     "model": model_type,
                     "adjust_cov": 1 if adjust else 0,
                     "norm_x": norm_x,
-                    "error": str(e),
+                    # "error": str(e),
                 }
             )
             # raise e
@@ -941,16 +971,27 @@ def cal_corr_multivar(
     df,
     x: Union[str, List[str]],
     y: str,
-    cofounders: Union[str, list] = None,
+    # cofounders: Union[str, list] = None,
+    cov: Union[str, List[str]] = None,
+    cat_cov: Union[str, List[str]] = None,
     model_type="glm",
-    family=sm.families.Gaussian(),
+    # family=sm.families.Gaussian(),
     return_all=False,
+    fit_params=None,
 ) -> pd.DataFrame:
 
-    if isinstance(cofounders, str):
-        cofounders = [cofounders]
-    elif cofounders is None:
-        cofounders = []
+    if isinstance(cov, str):
+        cov = [cov]
+    elif cov is None:
+        cov = []
+    if isinstance(cat_cov, str):
+        cat_cov = [cat_cov]
+    elif cat_cov is None:
+        cat_cov = []
+    cofounder = cov + cat_cov
+
+    if isinstance(x, str):
+        x = [x]
 
     assert model_type in [
         "glm",
@@ -958,27 +999,73 @@ def cal_corr_multivar(
         "logit",
     ], "model should be one of ['glm', 'ols', 'logit']"
     print(f"passed data have {df.shape[0]} rows")
-    used_df = df[x + [y] + cofounders].dropna()
+    used_df = df[x + [y] + cofounder].dropna()
 
-    X = sm.add_constant(used_df[x + cofounders])
+    if model_type == "auto":
+        if len(used_df[y].unique()) <= 2:
+            model_type = "logistic"
+        else:
+            model_type = "glm"
+        print(f"auto model selection for x={x} and y={y} with model_type={model_type}")
+
+    if fit_params is None:
+        fit_params = {}
+
+    import statsmodels.formula.api as smf
+
+    cov_str = " + ".join(cov)
+    cat_cov_str = " + ".join([f"C({col})" for col in cat_cov])
+    y_str = f"Q('{y}')" if " " in y else f"{y}"
+    x_str = [f"Q('{i}')" for i in x]
+
+    formula = f"{y_str} ~ {x_str} + {cov_str} + {cat_cov_str}"
+
+    X = sm.add_constant(used_df[[x] + cofounder])
     Y = used_df[y]
-    print(f"used data have {used_df.shape[0]} rows after dropna")
-    print(f"using input variables : {x + cofounders} to predict {y}")
+
     if model_type == "glm":
-        model = sm.GLM(Y, X, family=family).fit()
+        default_fit_params = {"disp": False}
+        for k in default_fit_params:
+            if k not in fit_params:
+                fit_params[k] = default_fit_params[k]
+
+        # model = sm.GLM(Y, X, family=family).fit(**fit_params)
+        model = smf.glm(
+            formula,
+            data=used_df,
+        ).fit(**fit_params)
         y_pred = model.predict(X)
-        additional_metrics = {}
-    elif model_type == "ols":
-        model = sm.OLS(Y, X).fit()
+        additional_metrics = cal_qt_metrics(Y, y_pred)
+
+        # metrics = {"Persudo_R2": model.pseudo_rsquared()}
+        # metrics.update(cal_qt_metrics(Y, y_pred))
+    # elif model_type == "ols":
+    #     model = sm.OLS(Y, X).fit(**fit_params)
+    #     y_pred = model.predict(X)
+
+    #     # metrics = {"Persudo_R2": model.pseudo_rsquared()}
+    #     # metrics.update(cal_qt_metrics(Y, y_pred))
+    #     metrics = cal_qt_metrics(Y, y_pred)
+    elif model_type == "logistic":
+        # fit_params.update({"maxiter": 100})
+
+        # default_fit_params = dict(
+        #     method="l1", alpha=0.1, disp=0, trim_mode="size", qc_verbose=0
+        # )
+        default_fit_params = {}
+        for k in default_fit_params:
+            if k not in fit_params:
+                fit_params[k] = default_fit_params[k]
+
+        # model = sm.Logit(Y, X).fit(**fit_params)
+        model = smf.logit(
+            formula,
+            data=used_df,
+        ).fit_regularized(**fit_params)
         y_pred = model.predict(X)
-        additional_metrics = {}
-    elif model_type == "logit":
-        model = sm.Logit(Y, X).fit()
-        y_pred = model.predict(X)
-        additional_metrics = {
-            "roc_auc_score": roc_auc_score(Y, y_pred),
-            "accuracy_score": accuracy_score(Y, (y_pred > 0.5).astype(int)),
-        }
+        additional_metrics = cal_binary_metrics(Y, y_pred)
+    else:
+        raise ValueError(f"model_type {model_type} not supported")
 
     used_df[f"{y}_pred"] = y_pred
     used_df[f"{y}_pred_zscore"] = (y_pred - y_pred.mean()) / y_pred.std()
@@ -1012,6 +1099,7 @@ def cal_corr_multivar(
         return model, result_df, metrics, used_df
     else:
         return result_df
+
 
 import matplotlib.pyplot as plt
 from skmisc.loess import loess
