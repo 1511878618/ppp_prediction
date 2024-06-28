@@ -803,7 +803,9 @@ def cal_corr_v2(
             y_str = f"Q('{y}')" if " " in y else f"{y}"
             x_str = f"Q('{x}')"
 
-            formula = f"{y_str} ~ {x_str} + {cov_str} + {cat_cov_str}"
+            formula = f"{y_str} ~ {x_str} + {cov_str}"
+            if len(cat_cov) > 0:
+                formula += f" + {cat_cov_str}"
 
             if model_type == "glm":
 

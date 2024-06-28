@@ -18,20 +18,19 @@ except:
 import os 
 
 
-def load_data(x):
+def load_data(x, **kwargs):
     # if isinstance(x, Path.)
     x = str(x)
     if ".csv" in x:
-        return pd.read_csv(x)
+        return pd.read_csv(x, **kwargs)
     elif x.endswith(".feather"):
-        return pd.read_feather(x)
+        return pd.read_feather(x, **kwargs)
     elif x.endswith(".pkl"):
-        return pd.read_pickle(x)
+        return pd.read_pickle(x, **kwargs)
     elif ".tsv" in x:
-        return pd.read_csv(x, sep="\t")
+        return pd.read_csv(x, sep="\t", **kwargs)
     else:
         raise ValueError(f"File format: {x} not supported")
-
 
 
 class HiddenPrints:

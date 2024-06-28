@@ -5,21 +5,77 @@ from lifelines.utils import concordance_index
 from ppp_prediction.ci import bootstrap_ci
 import pandas as pd 
 from itertools import product
+
+from lifelines import CoxPHFitter
+from typing import List, Union, Dict
+from pandas import DataFrame
+from lifelines.utils import concordance_index
+from ppp_prediction.ci import bootstrap_ci
+import pandas as pd
+from itertools import product
+from .corr import rank_INT
+
+
+class columnsFormat:
+    """
+    format columns of df to remove space
+
+    use format to remove
+
+    use reverse to get original column name from formatted column name
+    """
+
+    def __init__(self, data):
+        self.data = data
+        self.columns = data.columns
+        self.columns_dict = {
+            # i: i.replace(" ", "_").replace("-", "_").replace(",", "_")
+            # for i in self.columns
+            j: f"a_{i}"
+            for i, j in enumerate(self.columns)
+        }
+        self.columns_dict_reverse = {v: k for k, v in self.columns_dict.items()}
+
+    def format(self, data):
+        return data.rename(columns=self.columns_dict)
+
+    def reverse(self, data):
+        return data.rename(columns=self.columns_dict_reverse)
+
+    def get_format_column(self, column):
+        if isinstance(column, list):
+            return [self.columns_dict.get(i, None) for i in column]
+        return self.columns_dict.get(column, None)
+
+    def get_reverse_column(self, column):
+        if isinstance(column, list):
+            return [self.columns_dict_reverse.get(i, None) for i in column]
+
+        return self.columns_dict_reverse.get(column, None)
+
+
 def run_cox(
     df: DataFrame,
     var: Union[str, List],
     E: str,
     T: str,
     cov: Union[str, List, None] = None,
+    cat_cov: Union[str, List, None] = None,
     threads=4,
     return_all=False,
+    norm_x=None,
+    ci=False,
     n_resamples=100,
 ):
     if cov is None:
         cov = []
     if isinstance(cov, str):
         cov = [cov]
-
+    if cat_cov is None:
+        cat_cov = []
+    if isinstance(cat_cov, str):
+        cat_cov = [cat_cov]
+    # print(f"Running Cox for {var} with {'\t'.join(cov)} and {'\t'.join(cat_cov)}")
     if isinstance(var, list) and len(var) > 1:
         if threads is not None and threads > 1:
             from joblib import Parallel, delayed
@@ -29,11 +85,17 @@ def run_cox(
             threads = min(num_cores, threads, len(var))
             print(f"Using {threads} threads")
             res = Parallel(n_jobs=threads)(
-                delayed(run_cox)(df, var=i, E=E, T=T, cov=cov) for i in var
+                delayed(run_cox)(
+                    df, var=i, E=E, T=T, cov=cov, norm_x=norm_x, cat_cov=cat_cov
+                )
+                for i in var
             )
 
         else:
-            res = [run_cox(df, var=i, E=E, T=T, cov=cov) for i in var]
+            res = [
+                run_cox(df, var=i, E=E, T=T, cov=cov, norm_x=norm_x, cat_cov=cat_cov)
+                for i in var
+            ]
 
         if return_all:
             res_df, cph_list = zip(*res)
@@ -46,58 +108,128 @@ def run_cox(
     elif isinstance(var, str) or (isinstance(var, list) and len(var) == 1):
         if isinstance(var, str):
             var = [var]
+        print(f"Running Cox for {var} with {cov} and {cat_cov}")
 
-        cph = CoxPHFitter()
-        tmp_df = df[var + [E, T] + cov].dropna().copy().reset_index(drop=True)
+        tmp_df = df[var + [E, T] + cov + cat_cov].dropna().copy().reset_index(drop=True)
 
-        # try:
-        cph.fit(tmp_df, duration_col=T, event_col=E)
-        summary_df = cph.summary
-        summary_df["n_control"] = (tmp_df[E] == 0).sum()
-        summary_df["n_case"] = (tmp_df[E] == 1).sum()
-        summary_df["c_index"] = cph.concordance_index_
+        if norm_x is not None:
+            E_T_df = tmp_df[[E, T] + cov + cat_cov]
+            if norm_x == "zscore":
+                other_df = tmp_df[var]
+                other_df = (other_df - other_df.mean()) / other_df.std()
+            elif norm_x == "int":
 
-        # cal CI of c-index
-        event_array = tmp_df[E].values
-        time_array = tmp_df[T].values
-        partial_hazard = cph.predict_partial_hazard(tmp_df)
-        if n_resamples is not None:
-            if n_resamples > 0:
-                c_index, (c_index_LCI, c_index_UCI) = bootstrap_ci(
-                    metric=lambda event_array, time_array, partial_hazard: concordance_index(
-                        time_array, -partial_hazard, event_array
-                    ),
-                    event_array=event_array,
-                    time_array=time_array,
-                    partial_hazard=partial_hazard,
-                    n_resamples=n_resamples,
-                    method="bootstrap_basic",
-                    random_state=None,
-                )
-                summary_df["c_index_LCI"] = c_index_LCI
-                summary_df["c_index_UCI"] = c_index_UCI
-                summary_df["c_index (95% CI)"] = (
-                    f"{c_index:.2f} ({c_index_LCI:.2f}-{c_index_UCI:.2f}"
-                )
+                print(f"normalizing x={var[0]} by rank inverse normal transformation")
+                other_df = rank_INT(tmp_df[var + cov + cat_cov])
 
-        # AIC
-        summary_df["AIC"] = cph.AIC_partial_
+            else:
+                raise ValueError("norm_x should be zscore but", norm_x)
+            tmp_df = E_T_df.join(other_df)
 
-        res_df = (
-            summary_df.loc[[var[0]]]
-            .reset_index(drop=False)
-            .rename(
-                columns={
-                    "exp(coef) lower 95%": "HR_LCI",
-                    "exp(coef)": "HR",
-                    "exp(coef) upper 95%": "HR_UCI",
+        dfFormat = columnsFormat(df)  # to avoid space or special in column name
+        tmp_df = dfFormat.format(tmp_df)
+
+        var = dfFormat.get_format_column(var)
+        E = dfFormat.get_format_column(E)
+        T = dfFormat.get_format_column(T)
+        cov = dfFormat.get_format_column(cov)
+        cat_cov = dfFormat.get_format_column(cat_cov)
+
+        formula = " + ".join(var + cov + cat_cov)
+        # print(formula)
+
+        # see https://lifelines.readthedocs.io/en/latest/Examples.html#problems-with-convergence-in-the-cox-proportional-hazard-model
+        # Most way to solve this is by lower the step_size.
+        fit_params_list = [
+            *[
+                {
+                    "fit_options": dict(
+                        step_size=step_size,
+                    )
                 }
+                for step_size in [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3]
+            ]
+        ]
+
+        for fit_params in fit_params_list:
+            status = 0
+            try:
+                cph = CoxPHFitter()
+                cph.fit(
+                    tmp_df,
+                    duration_col=T,
+                    event_col=E,
+                    formula=formula,
+                    show_progress=False,
+                    **fit_params,
+                )
+                staus = 1
+                break
+            except Exception as e:
+                print(f"error for {fit_params} and {e}")
+                continue
+
+        try:
+            summary_df = cph.summary
+
+            summary_df["n_control"] = (tmp_df[E] == 0).sum()
+            summary_df["n_case"] = (tmp_df[E] == 1).sum()
+            summary_df["c_index"] = cph.concordance_index_
+
+            # cal CI of c-index
+            event_array = tmp_df[E].values
+            time_array = tmp_df[T].values
+            partial_hazard = cph.predict_partial_hazard(tmp_df)
+            if n_resamples is not None and ci:
+                if n_resamples > 0:
+                    c_index, (c_index_LCI, c_index_UCI) = bootstrap_ci(
+                        metric=lambda event_array, time_array, partial_hazard: concordance_index(
+                            time_array, -partial_hazard, event_array
+                        ),
+                        event_array=event_array,
+                        time_array=time_array,
+                        partial_hazard=partial_hazard,
+                        n_resamples=n_resamples,
+                        method="bootstrap_basic",
+                        random_state=None,
+                    )
+                    summary_df["c_index_LCI"] = c_index_LCI
+                    summary_df["c_index_UCI"] = c_index_UCI
+                    summary_df["c_index (95% CI)"] = (
+                        f"{c_index:.2f} ({c_index_LCI:.2f}-{c_index_UCI:.2f}"
+                    )
+
+            # AIC
+            summary_df["AIC"] = cph.AIC_partial_
+
+            res_df = (
+                summary_df.loc[[var[0]]]
+                .reset_index(drop=False)
+                .rename(
+                    columns={
+                        "exp(coef) lower 95%": "HR_LCI",
+                        "exp(coef)": "HR",
+                        "exp(coef) upper 95%": "HR_UCI",
+                    }
+                )
             )
-        )
-        res_df["HR (95% CI)"] = res_df.apply(
-            lambda x: f"{x['HR']:.2f} ({x['HR_LCI']:.2f}-{x['HR_UCI']:.2f})", axis=1
-        )
-        res_df = res_df.rename(columns={"covariate": "var"})
+            res_df["HR (95% CI)"] = res_df.apply(
+                lambda x: f"{x['HR']:.2f} ({x['HR_LCI']:.2f}-{x['HR_UCI']:.2f})", axis=1
+            )
+
+            res_df.insert(1, "HR (95% CI)", res_df.pop("HR (95% CI)"))
+            res_df.insert(2, "p", res_df.pop("p"))
+
+            res_df = res_df.rename(columns={"covariate": "var"})
+            res_df["var"] = res_df["var"].apply(
+                lambda x: dfFormat.get_reverse_column(x)
+            )
+            res_df["fit_params"] = fit_params  # record fit_params
+        except AttributeError:
+            print(f"error for {var} and {cov} and {cat_cov}")
+            res_df = pd.DataFrame()
+            res_df["var"] = dfFormat.get_reverse_column(var)
+            cph = None
 
         if return_all:
             return res_df, cph
@@ -280,10 +412,10 @@ def run_cox_complex_to_forestplot(
 import datetime
 def getSurvTime(
     data,
-    event_col,
-    event_date_col,
-    recuit_date_col,
-    death_date_col,
+    event_col="event",
+    event_date_col="date",
+    recuit_date_col="recuit_date",
+    death_date_col="death_date",
     rightcensor_date=datetime.datetime(2024, 1, 1),
 ):
     data = data[[event_col, event_date_col, recuit_date_col, death_date_col]].copy()

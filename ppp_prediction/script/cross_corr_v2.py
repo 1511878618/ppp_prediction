@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as ss
 from ppp_prediction.corr import cal_corr_v2
+from ppp_prediction.cox import run_cox
 from ppp_prediction.utils import load_data
 
 warnings.filterwarnings("ignore")
@@ -167,7 +168,20 @@ def getParser():
 
     parser.add_argument("-k", "--key", dest="key", help="key file path", required=True)
     parser.add_argument("--key_cols", dest="key_cols", help="key cols to cal corrs, default all cols of key", required=False, nargs="+", default=[])
-
+    parser.add_argument(
+        "--date_key_cols",
+        dest="date_key_cols",
+        help="date key cols to run cox",
+        required=False,
+        default=None,
+    ),
+    parser.add_argument(
+        "--event_key_cols",
+        dest="event_key_cols",
+        help="event key cols to run cox",
+        required=False,
+        default=None,
+    ),
     parser.add_argument("-o", "--output", dest = "output", help = "outpu file name", required=True)
     parser.add_argument("-t", "--threads", dest="threads", help="processes of this ", default=5, type=int, required=False)
     parser.add_argument("--adjust", dest="adjust", help="regress_out_confounding", action="store_true", required=False)
@@ -329,6 +343,9 @@ if __name__ == "__main__":
     # cond_cols_used = args.cond_cols # [Age, Sex]....
     key_cols_used = args.key_cols
     verbose = args.verbose
+    date_col = args.date_key_cols
+    event_col = args.event_key_cols
+
     timing = Timing()
     # # confilict params check
     # if method not in ["logistic", "linear", "glm"]:
@@ -348,29 +365,50 @@ if __name__ == "__main__":
         cat_cond_cols=cat_cond_cols,
     )
     # print(main_df)
+    if date_col is not None and event_col is not None:
+        if date_col not in main_df.columns:
+            raise ValueError("date_col not in main_df")
+        if event_col not in main_df.columns:
+            raise ValueError("event_col not in main_df")
 
-    corr_results_df = cal_corr_v2(
-        df=main_df,
-        x=col_dict["query_cols"],
-        y=col_dict["key_cols"],
-        # cofounder=col_dict["cond_cols"],
-        cov=col_dict["cond_cols"],
-        cat_cov=col_dict["cat_cond_cols"],
-        adjust=adjust,
-        norm_x=norm_x,
-        model_type=method,
-        threads=threads,
-        verbose=verbose,
-    )
+        # run cox
+        results_df = run_cox(
+            df=main_df,
+            var=col_dict["query_cols"],
+            E=event_col,
+            T=date_col,
+            cov=col_dict["cond_cols"],
+            cat_cov=col_dict["cat_cond_cols"],
+            threads=threads,
+            norm_x=norm_x,
+            ci=False,
+        )
+    else:
+        # run corr
+        results_df = cal_corr_v2(
+            df=main_df,
+            x=col_dict["query_cols"],
+            y=col_dict["key_cols"],
+            # cofounder=col_dict["cond_cols"],
+            cov=col_dict["cond_cols"],
+            cat_cov=col_dict["cat_cond_cols"],
+            adjust=adjust,
+            norm_x=norm_x,
+            model_type=method,
+            threads=threads,
+            verbose=verbose,
+        )
 
     if Path(output).parent.exists() is False:
         Path(output).parent.mkdir(parents=True, exist_ok=True)
 
-    corr_results_df.dropna(how="all", inplace=True)
+    results_df.dropna(how="all", inplace=True)
     if output.endswith(".gz"):
-        corr_results_df.to_csv(output, compression="gzip", index=False, na_rep="NA", sep="\t")
+        results_df.to_csv(
+            output, compression="gzip", index=False, na_rep="NA", sep="\t"
+        )
     else:
-        corr_results_df.to_csv(output, index=False, na_rep="NA", sep= "\t")
+        results_df.to_csv(output, index=False, na_rep="NA", sep="\t")
 
     print(f"总共消耗{timing():.2f}s")
 
@@ -404,8 +442,8 @@ if __name__ == "__main__":
     # with Pool(threads) as p:
     #     res = p.map(cal_corrs_multiprocess, parts_df)
 
-    # corr_results_df = pd.concat(res).reset_index(drop=True)
-    # corr_results_df = generate_multipletests_result(corr_results_df, pvalue_col="pvalue", alpha=0.05, method="fdr_bh")
+    # results_df = pd.concat(res).reset_index(drop=True)
+    # results_df = generate_multipletests_result(results_df, pvalue_col="pvalue", alpha=0.05, method="fdr_bh")
     # if lowmem:
     #     for tmp_path in parts_df:
     #         os.remove(tmp_path)

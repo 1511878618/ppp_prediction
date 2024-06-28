@@ -12,13 +12,13 @@ from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 from ppp_prediction.utils import DataFramePretty
 import pickle
+from ppp_prediction.metrics import cal_binary_metrics
 
-    
 from sklearn.pipeline import Pipeline
 from typing import Union, List
 from sklearn.utils._metadata_requests import process_routing
 import numpy as np
-# from ppp_prediction.metrics.utils import 
+# from ppp_prediction.metrics.utils import
 
 def log_likelihood(y_true, y_pred, n):
     """
@@ -519,7 +519,6 @@ class EnsembleModel(object):
             res_df.sort_values("coefficients", ascending=False)
             res.append(res_df)
 
-
         res = pd.concat(
             res,
             axis=1
@@ -577,7 +576,6 @@ class EnsembleModel(object):
                 ascending=False,
             )
 
-
         plt_data = plt_data.loc[
             [*top_k_features.index[:k], *top_k_features.index[-k:]], :
         ]
@@ -618,7 +616,7 @@ class EnsembleModel(object):
         res = res.loc[
             res.index.difference(exclude), :
         ]
-        
+
         if axes is None:
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
         else:
@@ -634,8 +632,6 @@ class EnsembleModel(object):
             index=["percent_of_nonZero_coefficients", "mean_coefficients"],
         ).T
         plt_data["abs_mean_coefficients"] = plt_data["mean_coefficients"].abs()
-
-
 
         # ax1
         sns.scatterplot(
@@ -803,13 +799,12 @@ class EnsembleModel(object):
             for idx, row in plt_data.tail(k).iterrows()
         ]
         adjust_text(texts, ax=ax, arrowprops=dict(arrowstyle="->", lw=0.5))
-                    
 
         return ax
     def predict(self, data,exclude=None, method="mean"):
         preds = []
 
-        # check all feature in data 
+        # check all feature in data
         data = data.loc[:, self.features].copy()
         if self.cov:
             exclude = self.cov 
@@ -827,7 +822,7 @@ class EnsembleModel(object):
             return self.weight_model.predict(np.array(preds).T)
         else:
             return np.mean(preds, axis=0)
-    
+
     def fit_ensemble_weight(self, train_data, test_data, label="label",):
         """
         fit ensemble weight
@@ -847,7 +842,6 @@ class EnsembleModel(object):
         test_dict = {}
 
         exclude = self.cov 
-
 
         for model_name, model in zip(self.model_name_list, self.models):
             if hasattr(model, "predict_proba"):
@@ -885,7 +879,6 @@ class EnsembleModel(object):
         # weight_model.features = X_var
         self.weight_model = weight_model
         return weight_model, train_metrics, test_metrics
-
 
 
 def fit_best_model_bootstrap(
@@ -954,4 +947,59 @@ def fit_best_model_bootstrap(
         ci_kwargs=dict(n_resamples=200),
     )
     test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
+    return model, train_metrics, test_metrics, train_df, test_df
+
+
+def fit_ensemble_model_simple(
+    train_df, test_df, X_var, y_var, engine="cuml", method="Linear", need_scale=False
+):
+    if engine == "sklearn":
+        from sklearn.linear_model import LinearRegression, LogisticRegression
+    else:
+        from cuml import LogisticRegression, LinearRegression
+
+    train_df = train_df[[y_var] + X_var].copy().dropna()
+    test_df = test_df[[y_var] + X_var].copy().dropna()
+    train_df[y_var] = train_df[y_var].astype(int)
+    test_df[y_var] = test_df[y_var].astype(int)
+
+    X_train = train_df[X_var]
+    y_train = train_df[y_var]
+
+    X_test = test_df[X_var]
+    y_test = test_df[y_var]
+    if method == "Linear":
+        model = LinearRegression()
+    elif method == "Logistic":
+        model = LogisticRegression()
+    else:
+        raise ValueError("method should be Linear or Logistic")
+
+    if need_scale:
+        model = Pipeline([("scaler", StandardScaler()), ("model", model)])
+    else:
+        model = Pipeline([("model", model)])
+
+    model = model.fit(X_train, y_train)
+
+    if hasattr(model, "predict_proba"):
+        train_pred = model.predict_proba(train_df[X_var].values)[:, 1]
+        test_pred = model.predict_proba(test_df[X_var].values)[:, 1]
+    else:
+        train_pred = model.predict(train_df[X_var].values)
+        test_pred = model.predict(test_df[X_var].values)
+
+    train_df[f"{y_var}_pred"] = train_pred
+    test_df[f"{y_var}_pred"] = test_pred
+
+    to_cal_train = train_df[[y_var, f"{y_var}_pred"]].dropna()
+    to_cal_test = test_df[[y_var, f"{y_var}_pred"]].dropna()
+
+    train_metrics = cal_binary_metrics(
+        y=to_cal_train[y_var], y_pred=to_cal_train[f"{y_var}_pred"]
+    )
+    test_metrics = cal_binary_metrics(
+        y=to_cal_test[y_var], y_pred=to_cal_test[f"{y_var}_pred"]
+    )
+
     return model, train_metrics, test_metrics, train_df, test_df
