@@ -35,7 +35,7 @@ class XGBoostModel(BaseModel):
         param_grid=None,
         device="cuda",
         n_threads=4,
-        n_iter=25,
+        n_iter=500,
         **kwargs,
     ):
         """
@@ -65,10 +65,10 @@ class XGBoostModel(BaseModel):
             param = param_default
 
         param_grid_default = {
-            "reg_alpha": [0.1, 0.2, 0.3, 0.5, 0.7, 1, 2, 4, 6, 8, 10],
-            "reg_lambda": [0.1, 0.2, 0.3, 0.5, 0.7, 1, 2, 4, 6, 8, 10],
-            "gamma": [0.1, 0.2, 0.3, 0.5, 0.7, 1, 2, 4, 6, 8, 10],
-            "max_depth": [10, 20, 50, 100, 150],
+            "reg_alpha": [0.1, 0.2, 0.5, 0.7, 1, 2, 4, 10],
+            "reg_lambda": [0.1, 0.2, 0.5, 0.7, 1, 2, 4, 10],
+            "gamma": [0.1, 0.2, 0.5, 0.7, 1, 2, 5, 10],
+            "max_depth": [10, 20, 30, 50, 70, 100],
         }
         if param_grid is not None:
             param_grid = {**param_grid_default, **param_grid}

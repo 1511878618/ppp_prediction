@@ -197,7 +197,7 @@ def getParser():
         default=[],
     )
 
-    parser.add_argument("-m", "--method", dest="method", default="auto", required=False, choices=["glm", "ols", "logistic", "auto"]) # may supported for multiple method
+    parser.add_argument("-m", "--method", dest="method", default="auto", required=False, choices=["glm", "ols", "logistic", "auto", "cox"]) # may supported for multiple method
     # parser.add_argument("--lowmem", action="store_true", dest="lowmem", help="low memory for cal")
     parser.add_argument("--norm_x", dest="norm_x",default=None, help="norm x before cal corrs, supported int or zscore", required=False, choices=["int", "zscore", None])
     parser.add_argument("--verbose", action="store_true", dest="verbose", help="print verbose output")
@@ -365,7 +365,7 @@ if __name__ == "__main__":
         cat_cond_cols=cat_cond_cols,
     )
     # print(main_df)
-    if date_col is not None and event_col is not None:
+    if date_col is not None and event_col is not None and method in ["cox", "auto"]:
         if date_col not in main_df.columns:
             raise ValueError("date_col not in main_df")
         if event_col not in main_df.columns:
