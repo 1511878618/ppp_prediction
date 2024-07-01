@@ -183,7 +183,7 @@ if __name__ == "__main__":
         if isinstance(model_list, str):
             model_list = [model_list]
         for model_type in model_list:
-            if model_type == "lasso" and len(cov) > 1:
+            if model_type == "lasso":
                 LassoTrainTFPipline(
                     mmconfig=mmconfig,
                     dataconfig=dataconfig,
