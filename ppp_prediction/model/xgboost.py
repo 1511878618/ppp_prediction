@@ -133,13 +133,14 @@ class XGBoostModel(BaseModel):
             config=param_grid,
         )
         best_model = get_best_model_checkpoint(result)
-
+        train_DM = xgb.DMatrix(train[X_var])
+        test_DM = xgb.DMatrix(test[X_var])
         if hasattr(best_model, "predict_proba"):
-            train_pred = best_model.predict_proba(train[X_var])[:, 1]
-            test_pred = best_model.predict_proba(test[X_var])[:, 1]
+            train_pred = best_model.predict_proba(train_DM)[:, 1]
+            test_pred = best_model.predict_proba(test_DM)[:, 1]
         else:
-            train_pred = best_model.predict(train[X_var])
-            test_pred = best_model.predict(test[X_var])
+            train_pred = best_model.predict(train_DM)
+            test_pred = best_model.predict(test_DM)
 
         train_pred_df = train[["eid", label]].copy()
         train_pred_df[f"pred_{label}"] = train_pred
