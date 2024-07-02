@@ -56,7 +56,7 @@ def tune_xgboost(
     if val is None:
         train, val = train_test_split(train, test_size=0.2)
 
-    def train_xgboost(train, val, config: dict):
+    def train_xgboost(config: dict, train, val ):
         # Train the classifier, using the Tune callback
         train_set = xgb.DMatrix(train[X_var], label=train[label])
         val_set = xgb.DMatrix(val[X_var], label=val[label])
