@@ -259,8 +259,13 @@ if __name__ == "__main__":
         for method_dir in omics_outputFolder.glob("*"):
             label = tgtconfig.label
             if method_dir.is_dir():
-                train_df = pd.read_csv(method_dir / "best_model_score_on_train.csv")
-                test_df = pd.read_csv(method_dir / "best_model_score_on_test.csv")
+                if method_dir.name == "glmnet":
+                    train_df = pd.read_csv(method_dir / "best_model_score_on_train.csv")
+                    test_df = pd.read_csv(method_dir / "best_model_score_on_test.csv")
+        
+                else:
+                    train_df = pd.read_csv(method_dir / "best_model_score_on_train.csv")
+                    test_df = pd.read_csv(method_dir / "best_model_score_on_test.csv")
 
                 to_cal_train_df = train_df[[label, f"pred_{label}"]]
                 to_cal_test_df = test_df[[label, f"pred_{label}"]]

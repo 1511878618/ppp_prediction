@@ -645,7 +645,7 @@ class LassoTrainTFPipline(object):
             used_dis_data.eid = used_dis_data.eid.astype(dataconfig.data.eid.dtype)
 
         # check output
-        model_output_folder = outputFolder / modelname
+        model_output_folder = outputFolder 
         model_output_folder.mkdir(parents=True, exist_ok=True)
         print(f"Output folder: {model_output_folder}")
         # lasso
