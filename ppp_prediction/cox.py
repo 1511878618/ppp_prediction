@@ -262,7 +262,7 @@ def run_cox(
 
             # extract
             var_to_select = summary_df.index[
-                summary_df.index.str.contains(var[0])
+                summary_df.index.str.fullmatch(var[0])
             ].tolist()
 
             res_df = (
