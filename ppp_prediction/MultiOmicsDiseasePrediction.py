@@ -605,12 +605,23 @@ class LassoTrainTFPipline(object):
         self.testdataconfig = testdataconfig
 
     def run(self, n_bootstrap=200, n_jobs=4, outputFolder="./out"):
+        # check output
+        outputFolder = Path(outputFolder) / "glmnet"
+        model_output_folder = outputFolder
+        model_output_folder.mkdir(parents=True, exist_ok=True)
+        print(f"Output folder: {model_output_folder}")
+
+        # final save csv
+        best_train_score = model_output_folder / "best_model_score_on_train.csv"
+        best_test_score = model_output_folder / "best_model_score_on_test.csv"
+        if best_train_score.exists() and best_test_score.exists():
+            print(f"Model already exists, skip!")
+            return
         # simple lasso
         mmconfig = self.mmconfig
         dataconfig = self.dataconfig
         tgtconfig = self.tgtconfig
         phenoconfig = self.phenoconfig
-        outputFolder = Path(outputFolder) / "glmnet"
 
         label = tgtconfig.label
         diseaseData = tgtconfig.data
@@ -644,10 +655,6 @@ class LassoTrainTFPipline(object):
         if used_dis_data.eid.dtype != dataconfig.data.eid.dtype:
             used_dis_data.eid = used_dis_data.eid.astype(dataconfig.data.eid.dtype)
 
-        # check output
-        model_output_folder = outputFolder 
-        model_output_folder.mkdir(parents=True, exist_ok=True)
-        print(f"Output folder: {model_output_folder}")
         # lasso
         lasso_config = LassoConfig(
             feature=feature,
@@ -888,13 +895,9 @@ class LassoTrainTFPipline(object):
 
             best_model = to_compare_metrics.index[0]
             best_model_score = score_dict[best_model]
-            best_model_score.to_csv(
-                model_output_folder / "best_model_score_on_test.csv", index=False
-            )
+            best_model_score.to_csv(best_test_score, index=False)
 
-            train_score_dict[best_model].to_csv(
-                model_output_folder / "best_model_score_on_train.csv", index=False
-            )
+            train_score_dict[best_model].to_csv(best_train_score, index=False)
             # save all score
             from functools import reduce
             all_score_test = reduce(
@@ -911,11 +914,11 @@ class LassoTrainTFPipline(object):
         else:
             shutil.copy(
                 single_lasso_output_folder / modelname / "test_score.csv",
-                model_output_folder / "best_model_score_on_test.csv",
+                best_test_score,
             )
             shutil.copy(
                 single_lasso_output_folder / modelname / "train_score.csv",
-                model_output_folder / "best_model_score_on_train.csv",
+                best_train_score,
             )
             test_score = load_data_v2(
                 single_lasso_output_folder / modelname / "test_score.csv"
