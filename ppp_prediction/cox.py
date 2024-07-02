@@ -281,7 +281,7 @@ def run_cox(
             )
 
             res_df.insert(1, "HR (95% CI)", res_df.pop("HR (95% CI)"))
-            res_df.insert(2, "p", res_df.pop("p"))
+            res_df.insert(2, "pvalue", res_df.pop("p"))
 
             res_df = res_df.rename(columns={"covariate": "var"})
 
@@ -292,13 +292,14 @@ def run_cox(
                     dfFormat.get_reverse_column(get_cat_var_name(x)),
                 )
             )
+            res_df["exposure"] = E
             res_df["fit_params"] = fit_params  # record fit_params
         except AttributeError:
             print(f"error for {var} and {cov} and {cat_cov}")
             res_df = pd.DataFrame()
             res_df["var"] = dfFormat.get_reverse_column(var)
             cph = None
-
+            res_df["exposure"] = E
         if return_all:
             return res_df, cph
         else:

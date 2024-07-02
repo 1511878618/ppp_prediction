@@ -172,7 +172,7 @@ def generate_multipletests_result(df, pvalue_col='pvalue',alpha=0.05, method='fd
     df = df.copy() 
     pvalue_series = df[pvalue_col]
     reject, pvals_corrected, _, _ = multipletests(pvalue_series, alpha=alpha, method=method)
-    df['pval_corrected'] = pvals_corrected
+    df['p_adj'] = pvals_corrected
     df['reject'] = reject
     return df 
 
