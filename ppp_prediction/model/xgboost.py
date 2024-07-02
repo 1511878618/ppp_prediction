@@ -56,7 +56,7 @@ def tune_xgboost(
     if val is None:
         train, val = train_test_split(train, test_size=0.2)
 
-    def train_xgboost(config: dict):
+    def train_xgboost(train, val, config: dict):
         # Train the classifier, using the Tune callback
         train_set = xgb.DMatrix(train[X_var], label=train[label])
         val_set = xgb.DMatrix(val[X_var], label=val[label])
@@ -79,7 +79,8 @@ def tune_xgboost(
         #     else tune.with_resources(train_xgboost, num_cpus=4, num_gpus=0.5)
         # ),
         # tune.with_resources(train_xgboost, resources={"cpu": n_cpus, "gpu": n_gpus}),
-        train_xgboost,
+        # train_xgboost,
+        tune.with_parameters(train_xgboost, train=train, val=val),
         tune_config=tune.TuneConfig(
             metric="eval-auc",
             mode="max",
