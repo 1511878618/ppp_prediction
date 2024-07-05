@@ -51,6 +51,9 @@ def getParser():
     parser.add_argument(
         "--gpu", action="store_true", help="use gpu", required=False, default=False
     )
+    parser.add_argument(
+        "--max-iter", type=int, default=2000, help="max iteration for xgboost"
+    )
 
     return parser
 
@@ -224,6 +227,7 @@ if __name__ == "__main__":
                             outputFolder=omics_outputFolder,
                             device=device,
                             n_threads=n_jobs,
+                            fit_or_tune_kwargs={"n_iter": args.max_iter},
                         )
                         break 
                     except MemoryError as e:

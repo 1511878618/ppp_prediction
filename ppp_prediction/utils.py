@@ -16,6 +16,38 @@ except:
         sys.exit(1)
 
 import os 
+def crosstab_multi(df, row_vars, col_vars):
+    res = []
+    for row_var in row_vars:
+        col_res = []
+        for col_var in col_vars:
+            # 使用pd.crosstab计算每一对变量的交叉表，dropna=False保证包括NaN
+            ct = pd.crosstab(
+                df[row_var].fillna("Missing"),
+                df[col_var].fillna("Missing"),
+                dropna=False,
+            )
+
+            # 填充缺失值为0
+            ct.fillna(0, inplace=True)
+
+            # 重命名索引和列以提高可读性
+            ct.index = [f"{row_var}_{idx}" for idx in ct.index]
+            ct.columns = [f"{col_var}_{col}" for col in ct.columns]
+
+            col_res.append(ct)
+
+        # 合并当前行变量的所有列变量的结果
+        if col_res:
+            combined_col_res = pd.concat(col_res, axis=1)
+            res.append(combined_col_res)
+
+    # 合并所有行变量的结果
+    if res:
+        final_res = pd.concat(res)
+        return final_res
+    else:
+        return pd.DataFrame()  # 返回一个空的DataFrame如果没有结果
 
 
 def load_data(x, **kwargs):

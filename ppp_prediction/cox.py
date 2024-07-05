@@ -164,18 +164,26 @@ def run_cox(
         for c_car_cov in cat_cov:
             tmp_df[c_car_cov] = tmp_df[c_car_cov].astype(int)
         if norm_x is not None:
-            E_T_df = tmp_df[[E, T] + cov + cat_cov]
-            if norm_x == "zscore":
-                other_df = tmp_df[var]
-                other_df = (other_df - other_df.mean()) / other_df.std()
-            elif norm_x == "int":
+            nunique = tmp_df[var[0]].nunique()
 
-                print(f"normalizing x={var[0]} by rank inverse normal transformation")
-                other_df = rank_INT(tmp_df[var + cov + cat_cov])
+            if nunique >= 3:
 
+                E_T_df = tmp_df[[E, T] + cov + cat_cov]
+
+                if norm_x == "zscore":
+                    other_df = tmp_df[var]
+                    other_df = (other_df - other_df.mean()) / other_df.std()
+                elif norm_x == "int":
+                    print(
+                        f"normalizing x={var[0]} by rank inverse normal transformation"
+                    )
+                    other_df = rank_INT(tmp_df[var + cov + cat_cov])
+
+                else:
+                    raise ValueError("norm_x should be zscore but", norm_x)
+                tmp_df = E_T_df.join(other_df)
             else:
-                raise ValueError("norm_x should be zscore but", norm_x)
-            tmp_df = E_T_df.join(other_df)
+                print(f"nunique of {var} is {nunique} < 3, not normalize")
 
         dfFormat = columnsFormat(df)  # to avoid space or special in column name
         tmp_df = dfFormat.format(tmp_df)

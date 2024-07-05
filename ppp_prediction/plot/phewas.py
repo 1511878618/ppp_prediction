@@ -41,6 +41,8 @@ def plot_phewas(
 
     data = data[need_cols].copy()
     data["log10p"] = -np.log10(data[p])
+    data["log10p"] = data["log10p"].replace(np.inf, 365)
+
     data["marker"] = data[coef].apply(lambda x: "up" if x > 0 else "down")
 
     if hue is None:
