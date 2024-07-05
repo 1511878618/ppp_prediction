@@ -54,6 +54,7 @@ def getParser():
     parser.add_argument(
         "--max-iter", type=int, default=2000, help="max iteration for xgboost"
     )
+    parser.add_argument("--omics", default=[], nargs="+", help="omics data to use")
 
     return parser
 
@@ -173,6 +174,11 @@ if __name__ == "__main__":
 
     result_path_list = []
     for omics in Config["omicsData"].keys():
+        if len(args.omics) > 0 and omics not in args.omics:
+            print(f"Skipping {omics}")  
+            continue
+        
+
         assert omics in Config["modelConfig"].keys(), f"{omics} not in model config"
         mmconfig = Config["modelConfig"][omics]
         dataconfig = Config["omicsData"][omics]
