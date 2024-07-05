@@ -56,7 +56,7 @@ def getParser():
     )
     parser.add_argument("--omics", default=[], nargs="+", help="omics data to use")
     parser.add_argument(
-        "drop-method", default=[], nargs="+", help="method to drop features"
+        "--drop-method", default=[], nargs="+", help="method to drop features"
     )
     return parser
 
