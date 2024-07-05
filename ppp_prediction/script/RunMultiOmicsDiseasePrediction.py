@@ -55,7 +55,9 @@ def getParser():
         "--max-iter", type=int, default=2000, help="max iteration for xgboost"
     )
     parser.add_argument("--omics", default=[], nargs="+", help="omics data to use")
-
+    parser.add_argument(
+        "drop-method", default=[], nargs="+", help="method to drop features"
+    )
     return parser
 
 if __name__ == "__main__":
@@ -177,7 +179,6 @@ if __name__ == "__main__":
         if len(args.omics) > 0 and omics not in args.omics:
             print(f"Skipping {omics}")  
             continue
-        
 
         assert omics in Config["modelConfig"].keys(), f"{omics} not in model config"
         mmconfig = Config["modelConfig"][omics]
@@ -192,6 +193,9 @@ if __name__ == "__main__":
         if isinstance(model_list, str):
             model_list = [model_list]
         for model_type in model_list:
+            if model_type in args.drop_method:
+                print(f"Skipping {model_type}")
+                continue
             if model_type == "lasso":
                 LassoTrainTFPipline(
                     mmconfig=mmconfig,
