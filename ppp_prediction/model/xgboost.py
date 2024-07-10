@@ -123,6 +123,8 @@ class XGBoostModel(BaseModel):
         smoke_test=False,
         n_iter=2000,
         param_grid=None,
+        num_cpus=30,
+        num_gpus=0,
         **kwargs,
     ):
         result = tune_xgboost(
@@ -133,6 +135,8 @@ class XGBoostModel(BaseModel):
             val=test,
             smoke_test=smoke_test,
             config=param_grid,
+            n_cpus=num_cpus,
+            n_gpus=num_gpus,
         )
         best_model = get_best_model_checkpoint(result)
         train_DM = xgb.DMatrix(train[X_var])
