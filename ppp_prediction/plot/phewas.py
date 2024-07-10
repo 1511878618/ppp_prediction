@@ -272,6 +272,8 @@ def plot_phewas_circle(
     scatter_y = "LOG10P"
     if cutoff is None:
         cutoff = -np.log10(0.05 / total)
+    else:
+        cutoff = -np.log10(cutoff)
     y_cutoff = cutoff
 
     scatter_hue = coef

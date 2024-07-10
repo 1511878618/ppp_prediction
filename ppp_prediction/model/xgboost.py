@@ -8,7 +8,7 @@ from ray.tune.schedulers import ASHAScheduler
 from sklearn.model_selection import train_test_split
 from ray import tune
 from ray.tune.integration.xgboost import TuneReportCheckpointCallback
-
+import ray
 
 def get_best_model_checkpoint(results):
     best_result = results.get_best_result()
@@ -28,9 +28,10 @@ def tune_xgboost(
     max_iter=100,
     config=None,
     # device="cpu",
-    # n_cpus=4,
-    # n_gpus=0.5,
+    n_cpus=30,
+    n_gpus=0,
 ):
+    ray.init(ignore_reinit_error=True, num_cpus=n_cpus, num_gpus=n_gpus)
     search_space = {
         # You can mix constants with search space objects.
         "objective": "binary:logistic",
@@ -90,6 +91,7 @@ def tune_xgboost(
         param_space=search_space,
     )
     results = tuner.fit()
+    ray.shutdown()
     return results
 
 

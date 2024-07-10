@@ -159,6 +159,14 @@ def run_cox(
         print(print_str)
 
         tmp_df = df[var + [E, T] + cov + cat_cov].dropna().copy().reset_index(drop=True)
+        n_case =  (tmp_df[E] == 1).sum()
+
+        if n_case < 30:
+            res_df = pd.DataFrame()
+            res_df["var"] = var
+            cph = None
+            res_df["exposure"] = E
+            res_df['annot'] = f"n_case={n_case} < 30"
         for c_cov in cov:
             tmp_df[c_cov] = tmp_df[c_cov].astype(float)
         for c_car_cov in cat_cov:

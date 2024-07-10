@@ -8,7 +8,7 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 
 import pandas as pd 
-def calibration_score(raw_train_pred, raw_test_pred, train_y, method="isotonic"):
+def calibration_score(raw_train_pred, raw_test_pred, train_y, method="logitstic"):
     if method == "isotonic":
         ir = IsotonicRegression(out_of_bounds="clip")
         ir.fit(raw_train_pred, train_y)
