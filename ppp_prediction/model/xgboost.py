@@ -123,7 +123,7 @@ class XGBoostModel(BaseModel):
         smoke_test=False,
         n_iter=2000,
         param_grid=None,
-        num_cpus=30,
+        num_cpus=80,
         num_gpus=0,
         **kwargs,
     ):

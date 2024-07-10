@@ -58,6 +58,9 @@ def getParser():
     parser.add_argument(
         "--drop-method", default=[], nargs="+", help="method to drop features"
     )
+    parser.add_argument(
+        "--xgboost-cpu-nums", type=int, default=80, help="number of threads for xgboost"
+    )
     return parser
 
 if __name__ == "__main__":
@@ -237,7 +240,10 @@ if __name__ == "__main__":
                             outputFolder=omics_outputFolder,
                             device=device,
                             n_threads=n_jobs,
-                            fit_or_tune_kwargs={"n_iter": args.max_iter},
+                            fit_or_tune_kwargs={
+                                "n_iter": args.max_iter,
+                                "num_cpus": args.xgboost_cpu_nums,
+                            },
                         )
                         break 
                     except MemoryError as e:
