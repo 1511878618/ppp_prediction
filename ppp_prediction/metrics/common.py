@@ -61,16 +61,56 @@ def cal_binary_metrics(y, y_pred, ci=False, n_resamples=100):
             y, y_pred, ci_kwargs={"n_resamples": n_resamples}
         )
 
-def cal_qt_metrics(y_true, y_pred):
-    pearsonr_score = pearsonr(y_true, y_pred)[0]
-    spearmanr_score = spearmanr(y_true, y_pred)[0]
-    explained_variance_score_ = explained_variance_score(y_true, y_pred)
-    r2_score_ = r2_score(y_true, y_pred)
+def cal_qt_metrics(y_true, y_pred, ci=False, n_resamples=100):
+    if not ci:
+        pearsonr_score = pearsonr(y_true, y_pred)[0]
+        spearmanr_score = spearmanr(y_true, y_pred)[0]
+        explained_variance_score_ = explained_variance_score(y_true, y_pred)
+        r2_score_ = r2_score(y_true, y_pred)
+        return {
+            "pearsonr": pearsonr_score,
+            "spearmanr": spearmanr_score,
+            "explained_variance_score": explained_variance_score_,
+            "r2_score": r2_score_,
+        }
+    elif ci:
+        return cal_qt_metrics_bootstrap(
+            y_true, y_pred, ci_kwargs={"n_resamples": n_resamples}
+        )
+
+def cal_qt_metrics_bootstrap(y_true, y_pred, ci_kwargs=None):
+    """
+    ci_kwargs:
+        confidence_level=0.95
+        method="bootstrap_bca"
+        n_resamples=5000
+    """
+
+    ci_params = dict(confidence_level=0.95, method="bootstrap_basic", n_resamples=5000)
+    if ci_kwargs is not None:
+        ci_params.update(ci_kwargs)
+
+    r2, (r2_LCI, r2_UCI) = bootstrap_ci(
+        y_true=y_true,
+        y_pred=y_pred,
+        metric=lambda y_true, y_pred: r2_score(y_true, y_pred),
+    )
+    pearsonr_score, (pearsonr_LCI, pearsonr_UCI) = bootstrap_ci(
+        y_true=y_true,
+        y_pred=y_pred,
+        metric=lambda y_true, y_pred: pearsonr(y_true, y_pred)[0],
+    )
+
+
+
     return {
         "pearsonr": pearsonr_score,
-        "spearmanr": spearmanr_score,
-        "explained_variance_score": explained_variance_score_,
-        "r2_score": r2_score_,
+        "pearsonr_LCI": pearsonr_LCI,
+        "pearsonr_UCI": pearsonr_UCI,
+        "r2_score": r2,
+        "r2_score_LCI": r2_LCI,
+        "r2_score_UCI": r2_UCI,
+        "N": len(y_true),
     }
 
 

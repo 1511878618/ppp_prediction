@@ -125,7 +125,7 @@ def plot_phewas(
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-
+    ax.legend().remove()
     # set legend
     handles = [
         mlines.Line2D(
@@ -152,10 +152,10 @@ def plot_phewas(
 
     # legend
     legend_kwargs_used = dict(
-        loc="lower center",
-        bbox_to_anchor=(0.5, 1),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0),
         ncol=2,
-        frameon=True,
+        frameon=False,
         prop={"size": 14},
         markerscale=1.5,
     )

@@ -9,6 +9,7 @@ def plot_venn2(
     labels=("Group1", "Group2"),
     colors=("#0073C2FF", "#EFC000FF"),
     title=None,
+    alpha=0.8,
 ):
     if ax is None:
         fig, ax = plt.subplots()
@@ -21,7 +22,7 @@ def plot_venn2(
         set_labels=labels,
         set_colors=colors,
         # set_colors=("#0073C2FF", "#EFC000FF"),
-        alpha=0.8,
+        alpha=alpha,
         ax=ax,
     )
     venn2_circles(
@@ -37,16 +38,16 @@ def plot_venn2(
             text.set_fontweight("bold")
         except:
             pass
-    ax.text(
-        0.8,
-        -0.1,
-        "\nVisualization by DataCharm",
-        transform=ax.transAxes,
-        ha="center",
-        va="center",
-        fontsize=8,
-        color="black",
-    )
+    # ax.text(
+    #     0.8,
+    #     -0.1,
+    #     "\nVisualization by DataCharm",
+    #     transform=ax.transAxes,
+    #     ha="center",
+    #     va="center",
+    #     fontsize=8,
+    #     color="black",
+    # )
     ax.set_title(
         title,
         size=15,
@@ -94,16 +95,16 @@ def plot_venn3(
             text.set_fontweight("bold")
         except:
             pass
-    ax.text(
-        0.8,
-        -0.1,
-        "\nVisualization by DataCharm",
-        transform=ax.transAxes,
-        ha="center",
-        va="center",
-        fontsize=9,
-        color="black",
-    )
+    # ax.text(
+    #     0.8,
+    #     -0.1,
+    #     "\nVisualization by DataCharm",
+    #     transform=ax.transAxes,
+    #     ha="center",
+    #     va="center",
+    #     fontsize=9,
+    #     color="black",
+    # )
     ax.set_title(
         title,
         fontweight="bold",

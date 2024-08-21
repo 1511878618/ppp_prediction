@@ -1,27 +1,29 @@
-from lifelines import CoxPHFitter
-from typing import List, Union, Dict
-from pandas import DataFrame
-from lifelines.utils import concordance_index
-from ppp_prediction.ci import bootstrap_ci
-import pandas as pd 
-from itertools import product
-
-from lifelines import CoxPHFitter
-from typing import List, Union, Dict
-from pandas import DataFrame
-from lifelines.utils import concordance_index
-from ppp_prediction.ci import bootstrap_ci
-import pandas as pd
-from itertools import product
-from .corr import rank_INT
 import re
 import string
+from itertools import product
+from typing import Dict, List, Union
+
+import pandas as pd
+from lifelines import CoxPHFitter
+from lifelines.utils import concordance_index
+from pandas import DataFrame
+
+from ppp_prediction.ci import bootstrap_ci
+from ppp_prediction.corr import rank_INT
 
 
 def get_cat_var_name(x):
     if x.startswith("C("):
         return re.findall(r"\((.*?)\)", x)[0]
     else:
+        return x
+
+
+def get_cat_var_subname(x):
+    # match [*]
+    try:
+        return re.findall(r"\[(.*?)\]", x)[0].split(".")[1]
+    except:
         return x
 
 
@@ -43,8 +45,16 @@ class columnsFormat:
         #     j: f"a_{i}"
         #     for i, j in enumerate(self.columns)
         # }
+        self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】"
         self.columns_dict = {
-            i: i.translate(str.maketrans("", "", string.punctuation)).replace(" ", "_")
+            i: "a_"
+            + re.sub(
+                f"[{re.escape(self.special_chars)}]",
+                "_",
+                i.translate(str.maketrans("", "", string.punctuation)).replace(
+                    " ", "_"
+                ),
+            )
             for i in self.columns
         }
         self.columns_dict_reverse = {v: k for k, v in self.columns_dict.items()}
@@ -65,6 +75,12 @@ class columnsFormat:
             return [self.columns_dict_reverse.get(i, i) for i in column]
 
         return self.columns_dict_reverse.get(column, column)
+
+    def __str__(self):
+        return f"columnsFormat: {self.columns_dict}"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def run_cox(
@@ -102,8 +118,9 @@ def run_cox(
     # print(f"Running Cox for {var} with {'\t'.join(cov)} and {'\t'.join(cat_cov)}")
     if isinstance(var, list) and len(var) > 1:
         if threads is not None and threads > 1:
-            from joblib import Parallel, delayed
             import multiprocessing
+
+            from joblib import Parallel, delayed
 
             num_cores = multiprocessing.cpu_count()
             threads = min(num_cores, threads, len(var))
@@ -159,14 +176,15 @@ def run_cox(
         print(print_str)
 
         tmp_df = df[var + [E, T] + cov + cat_cov].dropna().copy().reset_index(drop=True)
-        n_case =  (tmp_df[E] == 1).sum()
+        print(tmp_df.columns)
+        n_case = (tmp_df[E] == 1).sum()
 
         if n_case < 30:
             res_df = pd.DataFrame()
             res_df["var"] = var
             cph = None
             res_df["exposure"] = E
-            res_df['annot'] = f"n_case={n_case} < 30"
+            res_df["annot"] = f"n_case={n_case} < 30"
         for c_cov in cov:
             tmp_df[c_cov] = tmp_df[c_cov].astype(float)
         for c_car_cov in cat_cov:
@@ -201,11 +219,12 @@ def run_cox(
         T = dfFormat.get_format_column(T)
         cov = dfFormat.get_format_column(cov)
         cat_cov = dfFormat.get_format_column(cat_cov)
+        non_cat_cov = dfFormat.get_format_column([i for i in cov if i not in cat_cov])
         if cat_var_status:
             var_str = f"C({var[0]})"
         else:
             var_str = var[0]
-        formula = " + ".join([var_str] + cov)
+        formula = " + ".join([var_str] + non_cat_cov)
         if len(cat_cov) > 0:
             formula += " + " + " + ".join([f"C({i})" for i in cat_cov])
         print(formula)
@@ -225,9 +244,9 @@ def run_cox(
 
         for fit_params in fit_params_list:
             status = 0
+            # try:
+            cph = CoxPHFitter()
             try:
-                cph = CoxPHFitter()
-
                 cph.fit(
                     tmp_df,
                     duration_col=T,
@@ -237,6 +256,7 @@ def run_cox(
                     **fit_params,
                 )
                 staus = 1
+
                 break
             except Exception as e:
                 print(f"error for {fit_params} and {e}")
@@ -245,8 +265,6 @@ def run_cox(
         try:
             summary_df = cph.summary
 
-            summary_df["n_control"] = (tmp_df[E] == 0).sum()
-            summary_df["n_case"] = (tmp_df[E] == 1).sum()
             summary_df["c_index"] = cph.concordance_index_
 
             # cal CI of c-index
@@ -274,12 +292,16 @@ def run_cox(
 
             # AIC
             summary_df["AIC"] = cph.AIC_partial_
-            # print(summary_df)
 
             # extract
-            var_to_select = summary_df.index[
-                summary_df.index.str.fullmatch(var[0])
-            ].tolist()
+            if not cat_var_status:
+                var_to_select = summary_df.index[
+                    summary_df.index.str.fullmatch(var[0])
+                ].tolist()
+            else:
+                var_to_select = summary_df.index[
+                    summary_df.index.str.contains(var[0])
+                ].tolist()
 
             res_df = (
                 summary_df.loc[var_to_select]
@@ -292,6 +314,7 @@ def run_cox(
                     }
                 )
             )
+
             res_df["HR (95% CI)"] = res_df.apply(
                 lambda x: f"{x['HR']:.2f} ({x['HR_LCI']:.2f}-{x['HR_UCI']:.2f})", axis=1
             )
@@ -308,8 +331,46 @@ def run_cox(
                     dfFormat.get_reverse_column(get_cat_var_name(x)),
                 )
             )
-            res_df["exposure"] = E
+            # set ncase and ncontrol
+            if not cat_var_status:
+                res_df["n_control"] = (tmp_df[E] == 0).sum()
+                res_df["n_case"] = (tmp_df[E] == 1).sum()
+            else:
+
+                res_df["var"] = res_df["var"].apply(lambda x: get_cat_var_subname(x))
+
+                # add ref into var
+                # insert into first row
+                # get ref var
+                # used_ref_var = [i for i in tmp_df[var[0]].unique().tolist() if i not in res_df["var"].tolist()][0]
+                # ref_var_row = pd.DataFrame({
+                #     "var": [used_ref_var],
+                #     "HR": [1],
+                #     "HR_LCI": [1],
+                #     "HR_UCI": [1],
+
+                # })
+
+                # set var cols to str to get n_case and n_control
+                to_check_df = tmp_df[[E, var[0]]]
+                to_check_df[var[0]] = to_check_df[var[0]].astype(str)
+
+                res_df["n_case"] = res_df["var"].apply(
+                    lambda x: tmp_df[
+                        (tmp_df[E] == 1) & (to_check_df[var[0]] == x)
+                    ].shape[0]
+                )
+                res_df["n_control"] = res_df["var"].apply(
+                    lambda x: tmp_df[
+                        (tmp_df[E] == 0) & (to_check_df[var[0]] == x)
+                    ].shape[0]
+                )
+            res_df["n_case"] = res_df["n_case"].astype(int)
+            res_df["n_control"] = res_df["n_control"].astype(int)
+
+            res_df["exposure"] = dfFormat.get_reverse_column(E)
             res_df["fit_params"] = fit_params  # record fit_params
+
         except AttributeError:
             print(f"error for {var} and {cov} and {cat_cov}")
             res_df = pd.DataFrame()
@@ -322,8 +383,6 @@ def run_cox(
             return res_df
     else:
         raise ValueError("var should be str or list of str but", var)
-
-
 def run_cox_multivar(
     df: DataFrame,
     var: list,
@@ -368,12 +427,12 @@ def run_cox_multivar(
 
     dfFormat = columnsFormat(df)  # to avoid space or special in column name
     tmp_df = dfFormat.format(tmp_df)
+
     var = dfFormat.get_format_column(var)
     E = dfFormat.get_format_column(E)
     T = dfFormat.get_format_column(T)
 
     var_str = " + ".join([f"C({i})" if i in cat_var else i for i in var])
-
     formula = f"{var_str}"
     fit_params_list = [
         *[
@@ -414,7 +473,7 @@ def run_cox_multivar(
     time_array = tmp_df[T].values
     partial_hazard = cph.predict_partial_hazard(tmp_df)
 
-    if n_resamples is not None: 
+    if n_resamples is not None:
         if n_resamples > 0:
             c_index, (c_index_LCI, c_index_UCI) = bootstrap_ci(
                 metric=lambda event_array, time_array, partial_hazard: concordance_index(
@@ -568,6 +627,8 @@ def run_cox_complex_to_forestplot(
 
 
 import datetime
+
+
 def getSurvTime(
     data,
     event_col="event",

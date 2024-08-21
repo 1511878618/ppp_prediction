@@ -1,6 +1,6 @@
-from cuml.ensemble import RandomForestClassifier
+# from cuml.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import roc_auc_score, make_scorer
+from sklearn.metrics import roc_auc_score, make_scorer, r2_score
 from tqdm.rich import tqdm
 import numpy as np
 import pandas as pd
@@ -344,22 +344,23 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
     if param_grid is not None:
         models_params.update(param_grid)
 
-
     if method_list is not None:
         models_params = {k: v for k, v in models_params.items() if k in method_list}
 
-
     train_df = train_df[[y_var] + X_var].copy().dropna()
     test_df = test_df[[y_var] + X_var].copy().dropna()
-    train_df[y_var] = train_df[y_var].astype(int)
-    test_df[y_var] = test_df[y_var].astype(int)
-
-    train_df, val_df = train_test_split(train_df, test_size=0.1, random_state=42)
+    if y_type == "bt":
+        train_df[y_var] = train_df[y_var].astype(int)
+        test_df[y_var] = test_df[y_var].astype(int)
+    else:
+        train_df[y_var] = train_df[y_var].astype(float)
+        test_df[y_var] = test_df[y_var].astype(float)
+    # train_df, val_df = train_test_split(train_df, test_size=0.1, random_state=42)
 
     X_train = train_df[X_var]
     y_train = train_df[y_var]
-    X_val = val_df[X_var]
-    y_val = val_df[y_var]
+    # X_val = val_df[X_var]
+    # y_val = val_df[y_var]
 
     X_test = test_df[X_var]
     y_test = test_df[y_var]
@@ -371,9 +372,7 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
             best_model_name = "Lasso"
         best_models = None 
     else:
-        print(
-            f"train shape: {X_train.shape}, val shape is {X_val.shape}, test shape is {X_test.shape}"
-        )
+        print(f"train shape: {X_train.shape},  test shape is {X_test.shape}")
         best_models = []
 
         for model_name, mp in models_params.items():
@@ -387,7 +386,7 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
             if model_name == "Logistic":
                 scorer = make_scorer(roc_auc_score, needs_proba=True)
             else:
-                scorer = make_scorer(roc_auc_score)
+                scorer = make_scorer(r2_score)
             rf = Pipeline(
                 [
                     ("scaler", StandardScaler()),
@@ -405,22 +404,38 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
             bset_params = grid_search.best_params_
 
             if model_name == "Logistic":
-                auc = roc_auc_score(y_val, best_model.predict_proba(X_val.values)[:, 1])
+                eval_metrics = roc_auc_score(
+                    y_test, best_model.predict_proba(X_test.values)[:, 1]
+                )
+                print(
+                    f"model: {model_name}\tBest parameters: {bset_params}, with auc: {eval_metrics}"
+                )
+
             else:
-                auc = roc_auc_score(y_val, best_model.predict(X_val.values))
-            print(f"model: {model_name}\tBest parameters: {bset_params}, with auc: {auc}")
-            best_models.append((model_name, best_model, grid_search, auc))
+                if y_type == "bt":
+                    eval_metrics = roc_auc_score(
+                        y_test, best_model.predict(X_test.values)
+                    )
+                    print(
+                        f"model: {model_name}\tBest parameters: {bset_params}, with auc: {eval_metrics}"
+                    )
+
+                else:
+                    eval_metrics = r2_score(y_test, best_model.predict(X_test.values))
+                    print(
+                        f"model: {model_name}\tBest parameters: {bset_params}, with r2: {eval_metrics}"
+                    )
+
+            best_models.append((model_name, best_model, grid_search, eval_metrics))
 
         ## select the currently best
         # print(best_models)
 
-
         best_models = list(sorted(best_models, key=lambda x: x[-1], reverse=True))
         best_model_name, best_model, *_ = best_models[0]
 
-
     # 还原原始的train_df
-    train_df = pd.concat([train_df, val_df], axis=0)
+    # train_df = pd.concat([train_df, val_df], axis=0)
     X_train = train_df[X_var]
     y_train = train_df[y_var]
 
@@ -430,30 +445,35 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
         test_pred = best_model.predict_proba(X_test.values)[:, 1]
     else:
         train_pred = best_model.predict(X_train.values)
-        val_pred = best_model.predict(X_val.values)
+        # val_pred = best_model.predict(X_val.values)
         test_pred = best_model.predict(X_test.values)
 
     train_df[f"{y_var}_pred"] = train_pred
 
     test_df[f"{y_var}_pred"] = test_pred
 
-    train_auc = roc_auc_score(y_train, train_pred)
-    # test_auc = roc_auc_score(y_test, test_pred)
+    if y_type == "bt":
+        train_auc = roc_auc_score(y_train, train_pred)
+        # test_auc = roc_auc_score(y_test, test_pred)
 
-    train_metrics = {
-        "train_auc": train_auc,
-    }
-    test_metrics = cal_binary_metrics_bootstrap(
-        y=y_test, y_pred=test_pred, ci_kwargs=dict(n_resamples=200)
-    )
-    test_metrics['model'] = best_model_name
-    # test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
-    # try:
-    #     best_model.features = X_var # add feature names to model
+        train_metrics = {
+            "train_auc": train_auc,
+        }
+        test_metrics = cal_binary_metrics_bootstrap(
+            y=y_test, y_pred=test_pred, ci_kwargs=dict(n_resamples=200)
+        )
+    else:
+        train_r2 = r2_score(y_train, train_pred)
+        test_r2 = r2_score(y_test, test_pred)
 
-    # except:
-    #     print("can't assign feature names to model") 
-    #     pass 
+        train_metrics = {
+            "train_r2": train_r2,
+        }
+        test_metrics = {
+            "test_r2": test_r2,
+        }
+    test_metrics["model"] = best_model_name
+
     try:
         if save_dir:
             Path(save_dir).parent.mkdir(parents=True, exist_ok=True)
@@ -968,10 +988,15 @@ def fit_ensemble_model_simple(
 
     X_test = test_df[X_var]
     y_test = test_df[y_var]
+
     if method == "Linear":
         model = LinearRegression()
     elif method == "Logistic":
-        model = LogisticRegression()
+        model = LogisticRegression(
+            solver="qn" if engine == "cuml" else "saga",
+            random_state=42,
+            class_weight="balanced",
+        )
     else:
         raise ValueError("method should be Linear or Logistic")
 
@@ -999,7 +1024,7 @@ def fit_ensemble_model_simple(
         y=to_cal_train[y_var], y_pred=to_cal_train[f"{y_var}_pred"]
     )
     test_metrics = cal_binary_metrics(
-        y=to_cal_test[y_var], y_pred=to_cal_test[f"{y_var}_pred"]
+        y=to_cal_test[y_var], y_pred=to_cal_test[f"{y_var}_pred"], ci=True
     )
 
     return model, train_metrics, test_metrics, train_df, test_df

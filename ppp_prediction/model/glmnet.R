@@ -160,8 +160,8 @@ glmnet_lasso<-function(
       coef = as.data.frame(as.matrix(coef_)),
       train = train,
       test = test,
-      train_mean = train_mean,
-      train_std = train_std
+      train_mean = as.data.frame(as.matrix(train_mean)),
+      train_std = as.data.frame(as.matrix(train_std))
     )
   )
   # print("end")

@@ -16,6 +16,39 @@ except:
         sys.exit(1)
 
 import os 
+
+
+def downsample_by(from_df, ref_df, by_cols, ratio=1):
+    """
+    Downsamples a DataFrame based on the frequency of values in another DataFrame.
+
+    Parameters:
+    from_df (DataFrame): The DataFrame to be downsampled.
+    ref_df (DataFrame): The DataFrame used as a reference for downsampling.
+    by_cols (str or list): The column(s) used for grouping and downsampling.
+
+    Returns:
+    DataFrame: The downsampled DataFrame.
+
+    """
+    if isinstance(by_cols, str):
+        by_cols = [by_cols]
+
+    from_df = from_df.copy()
+    ref_df = ref_df.copy()
+    dist = ref_df.groupby(by_cols).size()
+    sampled_df = (
+        from_df.groupby(by_cols, as_index=False)
+        .apply(
+            lambda x: x.sample(
+                min(dist.get(x.name, 0) * ratio, x.shape[0]), random_state=1
+            )
+        )
+        .reset_index(drop=True)
+    )
+    return sampled_df
+
+
 def crosstab_multi(df, row_vars, col_vars):
     res = []
     for row_var in row_vars:
@@ -50,6 +83,23 @@ def crosstab_multi(df, row_vars, col_vars):
         return pd.DataFrame()  # 返回一个空的DataFrame如果没有结果
 
 
+def generate_qcut_labels(k):
+    """
+    k = 4 means <25%, 25%-50%, 50%-75%, >=75%
+    k = 3 means <33%, 33%-66%, >=66%
+    """
+    res = []
+    for i in range(k):
+        if i == 0:
+
+            res.append(f"<{(i+1)*100/k:.0f}%")
+        elif i == k - 1:
+            res.append(f">={(i)*100/k:.0f}%")
+        else:
+            res.append(f"{i*100/k:.0f}-{(i+1)*100/k:.0f}%")
+    return res
+
+
 def load_data(x, **kwargs):
     # if isinstance(x, Path.)
     x = str(x)
@@ -78,7 +128,7 @@ class DataFramePretty(object):
     def __init__(self, df: pd.DataFrame) -> None:
         self.data = df
 
-    def show(self):
+    def get_pretty(self):
         table = Table()
 
         # self.data是原始数据
@@ -90,9 +140,14 @@ class DataFramePretty(object):
 
         for idx in range(len(df)):
             table.add_row(*df.iloc[idx].tolist())
+        return table
 
+    def show(self):
+        table = self.get_pretty()
         console = Console()
         console.print(table)
+
+
 def modelParametersNum(model):
     totalNum = sum([i.numel() for i in model.parameters()])
     print(f"模型总参数个数：{totalNum}\t占用的总显存为{totalNum*4/1024/1024:.2f}MB")

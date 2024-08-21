@@ -76,9 +76,11 @@ def run_glmnet(
             save_path=save_path if save_path is not None else robjects.r("NULL"),
         )
         # result = [list(i) for i in result]
-        train_mean = result["train_mean"]
-        train_std = result["train_std"]
+        train_mean = result["train_mean"].loc[xvar]
+        train_std = result["train_std"].loc[xvar]
         train = result["train"]
+        coef = result["coef"].loc[xvar]
+
         if train is not None:
             train = train.rename(columns={"pred": f"{label}_pred"})
             # train_metrics =
@@ -101,7 +103,6 @@ def run_glmnet(
                 test_metrics = None
         else:
             test = None
-        coef = result["coef"]
         # rm intercept
         keeped = coef.index.str.contains(".*Intercept.*")
         coef = coef[~keeped]
@@ -139,6 +140,6 @@ class glmnet_linear:
         elif isinstance(X, pd.Series):
             X = X.values
         if self.mean is not None and self.std is not None:
-            X = (X - self.mean) / self.std
+            X = (X - self.mean.T.values) / self.std.T.values
 
         return X @ self.coef + self.intercept

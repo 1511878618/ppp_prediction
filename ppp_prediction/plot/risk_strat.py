@@ -97,7 +97,7 @@ def _calibration_curve_plot(
             marker="o",
             mfc=color,
             color=color,
-            capsize=4,
+            capsize=0,
             label=label,
         )
     else:
@@ -128,6 +128,7 @@ def calibration_dot_plot(
     k=10,
     n_resample=1000,
     offset=0.2,
+    **kwargs,
 ):
 
     if ax is None:

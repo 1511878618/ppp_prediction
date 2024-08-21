@@ -1,5 +1,3 @@
-
-
 from ppp_prediction.corr import cal_corr_multivar_v2
 import pandas as pd 
 import numpy as np
@@ -7,7 +5,6 @@ from pandas import DataFrame
 from lifelines import CoxPHFitter
 from typing import Union
 from ppp_prediction.cox import run_cox_multivar
-
 
 def add_k_followSurvTime(df, timeCol, eventCol, k=5, k_list=None, k_num=None):
     df = df[[timeCol, eventCol]].copy()
@@ -31,6 +28,11 @@ def add_k_followSurvTime(df, timeCol, eventCol, k=5, k_list=None, k_num=None):
         return pd.concat(res_list, axis=1), survDict
 
 
+from lifelines.utils import concordance_index
+from ppp_prediction.corr import cal_corr_multivar_v2
+from pandas import DataFrame
+from typing import Union
+
 
 def getTimePlotDataframe(
     df: DataFrame,
@@ -38,11 +40,13 @@ def getTimePlotDataframe(
     eventCol: str,
     scoreCol: Union[list, str],
     k_num: int = 5,
-    metrics: str = "c",
+    metrics: str = "c_index",
     k_list: Union[None, list] = None,
-    cox_kwargs: dict = {},
-    corr_kwargs: dict = {},
+    min_numbers=10,
 ):
+    """
+    metrics only : c_index or AUC
+    """
     if isinstance(scoreCol, str):
         scoreCol = [scoreCol]
 
@@ -58,8 +62,8 @@ def getTimePlotDataframe(
         E = survDict_of_k["E"]
         T = survDict_of_k["T"]
         print(f"{k} have {df[E].sum()} events")
-        if df[E].sum() < 10:
-            print(f"event number is less than 10 at {k}")
+        if df[E].sum() < min_numbers:
+            print(f"event number is less than {min_numbers} at {k}")
             continue
         else:
             if metrics == "c":
@@ -69,7 +73,6 @@ def getTimePlotDataframe(
                     E=E,
                     T=T,
                     return_all=True,
-                    **cox_kwargs
                 )
                 res_df["stopTime"] = k
                 res_list.append(res_df)
@@ -82,7 +85,6 @@ def getTimePlotDataframe(
                     model_type="logistic",
                     ci=True,
                     n_resamples=100,
-                    **corr_kwargs
                 )
                 res["stopTime"] = k
                 res_list.append(res)
@@ -90,6 +92,3 @@ def getTimePlotDataframe(
                 raise ValueError("metrics should be c or auc")
 
     return pd.concat(res_list)
-
-
-    

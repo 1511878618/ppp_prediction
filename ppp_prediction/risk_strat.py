@@ -72,7 +72,7 @@ def calibration_curve_df(data=None, y_true=None, y_pred=None, k=10, n_resample=1
 
 
 def _calibration_curve_plot(
-    y_true, y_pred, k=10, n_resample=1000, offset=0, color="black", ax=None, label=None
+    y_true, y_pred, k=10, n_resample=1000, offset=0, color="black", ax=None, label=None, **kwargs
 ):
     plt_df = pd.DataFrame({"y_true": y_true, "y_pred": y_pred}).dropna()
 

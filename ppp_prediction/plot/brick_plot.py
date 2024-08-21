@@ -94,6 +94,7 @@ def brick_plot(
             edgecolor="black",
             linewidth=min(1 / (len(order) / 150), 1),
             color=c_color,
+            **kwargs,
         )
         bar_legend = mpatches.Patch(color=c_color, label=name)
         bar_legend_list.append(bar_legend)

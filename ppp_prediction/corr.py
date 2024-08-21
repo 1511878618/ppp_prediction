@@ -1,98 +1,57 @@
+import warnings
+from itertools import product
+from typing import List, Tuple, Union, overload
+
+import confidenceinterval as ci
+import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    r2_score,
-    explained_variance_score,
-    roc_auc_score,
-    accuracy_score,
-    f1_score,
-    roc_curve,
-    precision_recall_curve,
-    auc,
-)
-from scipy.stats import pearsonr, spearmanr
+import scipy.stats as ss
 import statsmodels.api as sm
-from typing import Union, overload, Tuple, List
+import statsmodels.formula.api as smf
+import statsmodels.stats.multitest as smm
+from confidenceinterval.bootstrap import bootstrap_ci
+from pandas import DataFrame
+from scipy.stats import pearsonr, spearmanr
+from sklearn.metrics import (
+    accuracy_score,
+    auc,
+    explained_variance_score,
+    f1_score,
+    precision_recall_curve,
+    r2_score,
+    roc_auc_score,
+    roc_curve,
+)
+from statsmodels.stats.multitest import multipletests
+
 # from tqdm.rich import tqdm
 from tqdm.notebook import tqdm
-import numpy as np
-from confidenceinterval.bootstrap import bootstrap_ci
-import confidenceinterval as ci
-from statsmodels.stats.multitest import multipletests
-import numpy as np
-import statsmodels.stats.multitest as smm
-from pandas import DataFrame
-from itertools import product
-import statsmodels.api as sm
-from typing import Union, overload, Tuple, List
-from sklearn.metrics import (
-    r2_score,
-    explained_variance_score,
-    roc_auc_score,
-    accuracy_score,
-)
-from scipy.stats import pearsonr, spearmanr
-import scipy.stats as ss
-import statsmodels.formula.api as smf
-
-import pandas as pd
-from sklearn.metrics import (
-    r2_score,
-    explained_variance_score,
-    roc_auc_score,
-    accuracy_score,
-    f1_score,
-    roc_curve,
-    precision_recall_curve,
-    auc,
-)
-from scipy.stats import pearsonr, spearmanr
-import statsmodels.api as sm
-from typing import Union, overload, Tuple, List
 from tqdm.rich import tqdm
-import numpy as np
-from confidenceinterval.bootstrap import bootstrap_ci
-import confidenceinterval as ci
-from statsmodels.stats.multitest import multipletests
-import numpy as np
-import statsmodels.stats.multitest as smm
-from pandas import DataFrame
-from itertools import product
-import statsmodels.api as sm
-from typing import Union, overload, Tuple, List
-from sklearn.metrics import (
-    r2_score,
-    explained_variance_score,
-    roc_auc_score,
-    accuracy_score,
-)
-from scipy.stats import pearsonr, spearmanr
-import scipy.stats as ss
-import warnings
 
-def rank_INT(series, c=3.0/8, stochastic=True):
-    """ Perform rank-based inverse normal transformation on pandas series.
-        If stochastic is True ties are given rank randomly, otherwise ties will
-        share the same value. NaN values are ignored.
 
-        Args:
-            param1 (pandas.Series):   Series of values to transform
-            param2 (Optional[float]): Constand parameter (Bloms constant)
-            param3 (Optional[bool]):  Whether to randomise rank of ties
-        
-        Returns:
-            pandas.Series
+def rank_INT(series, c=3.0 / 8, stochastic=True):
+    """Perform rank-based inverse normal transformation on pandas series.
+    If stochastic is True ties are given rank randomly, otherwise ties will
+    share the same value. NaN values are ignored.
+
+    Args:
+        param1 (pandas.Series):   Series of values to transform
+        param2 (Optional[float]): Constand parameter (Bloms constant)
+        param3 (Optional[bool]):  Whether to randomise rank of ties
+
+    Returns:
+        pandas.Series
     """
 
     # Check input
-    assert(isinstance(series, pd.Series))
-    assert(isinstance(c, float))
-    assert(isinstance(stochastic, bool))
+    assert isinstance(series, pd.Series)
+    assert isinstance(c, float)
+    assert isinstance(stochastic, bool)
 
     # Set seed
     np.random.seed(123)
 
     # Take original series indexes
-    
 
     raw_series = series.copy()
     # Drop NaNs
@@ -115,14 +74,15 @@ def rank_INT(series, c=3.0/8, stochastic=True):
 
     # Convert rank to normal distribution
     transformed = rank.apply(rank_to_normal, c=c, n=len(rank))
-    
+
     # return transformed[orig_idx]
     raw_series[orig_idx] = transformed[orig_idx]
     return raw_series
 
+
 def rank_to_normal(rank, c, n):
     # Standard quantile function
-    x = (rank - c) / (n - 2*c + 1)
+    x = (rank - c) / (n - 2 * c + 1)
     return ss.norm.ppf(x)
 
 
@@ -153,7 +113,7 @@ def cal_residual(df, x: List, y: str, plus_mean=True, return_model=False):
         return final
 
 
-def generate_multipletests_result(df, pvalue_col='pvalue',alpha=0.05, method='fdr_bh'):
+def generate_multipletests_result(df, pvalue_col="pvalue", alpha=0.05, method="fdr_bh"):
     """
         method : str
         Method used for testing and adjustment of pvalues. Can be either the full name or initial letters. Available methods are:
@@ -169,12 +129,14 @@ def generate_multipletests_result(df, pvalue_col='pvalue',alpha=0.05, method='fd
     fdr_tsbh : two stage fdr correction (non-negative)
     fdr_tsbky : two stage fdr correction (non-negative)
     """
-    df = df.copy() 
+    df = df.copy()
     pvalue_series = df[pvalue_col]
-    reject, pvals_corrected, _, _ = multipletests(pvalue_series, alpha=alpha, method=method)
-    df['p_adj'] = pvals_corrected
-    df['reject'] = reject
-    return df 
+    reject, pvals_corrected, _, _ = multipletests(
+        pvalue_series, alpha=alpha, method=method
+    )
+    df["p_adj"] = pvals_corrected
+    df["reject"] = reject
+    return df
 
 
 def find_best_cutoff(fpr, tpr, thresholds):
@@ -276,6 +238,7 @@ def cal_binary_metrics_bootstrap(y, y_pred, ci_kwargs=None):
         "N_case": y.sum(),
         "N_control": len(y) - y.sum(),
     }
+
 
 def cal_qt_metrics(y_true, y_pred):
     pearsonr_score = pearsonr(y_true, y_pred)[0]
@@ -518,8 +481,8 @@ def cal_corr_multivar_v2(
     norm_x=None,
     model_type: Union[str, List[str]] = "glm",
     family=sm.families.Gaussian(),
-    ci= False,
-    n_resamples = 100,
+    ci=False,
+    n_resamples=100,
     verbose=False,
 ):
     """
@@ -583,8 +546,10 @@ def cal_corr_multivar_v2(
         model = sm.Logit(Y, X).fit()
         y_pred = model.predict(X)
         if ci:
-            metrics = cal_binary_metrics_bootstrap(Y, y_pred, ci_kwargs={"n_resamples": n_resamples})
-        else:   
+            metrics = cal_binary_metrics_bootstrap(
+                Y, y_pred, ci_kwargs={"n_resamples": n_resamples}
+            )
+        else:
             metrics = cal_binary_metrics(Y, y_pred)
     else:
         raise ValueError(f"model_type {model_type} not supported")
@@ -680,13 +645,15 @@ def cal_corr_v2(
             cofounder = None
 
         x_y_model_combination = list(product(x, y, model_type))
-        print(f"total {len(x_y_model_combination)} combination of  to cal by threads {threads}")
+        print(
+            f"total {len(x_y_model_combination)} combination of  to cal by threads {threads}"
+        )
 
         cofounder = cov + cat_cov
         if len(cofounder) == 0:
-            cofounder = None
+            cofounder = []
 
-        if threads ==1:
+        if threads == 1:
             res = [
                 cal_corr_v2(
                     df[[x, y] + cofounder],
@@ -711,6 +678,7 @@ def cal_corr_v2(
 
         else:
             from joblib import Parallel, delayed
+
             # res = Parallel(n_jobs=threads)(delayed(cal_corr_v2)(df[[x, y] + cofounder], x, y, cofounder, adjust,norm_x,current_model_type, 1, family, verbose) for x,y,current_model_type in tqdm(x_y_model_combination, total=len(x_y_model_combination), desc="cal corrs"))
             res = Parallel(n_jobs=threads)(
                 delayed(cal_corr_v2)(
@@ -745,7 +713,7 @@ def cal_corr_v2(
 
             cofounder = cov + cat_cov
             if len(cofounder) == 0:
-                cofounder = None
+                cofounder = []
 
             if threads > 1:
                 print(
@@ -803,7 +771,11 @@ def cal_corr_v2(
             y_str = f"Q('{y}')" if " " in y else f"{y}"
             x_str = f"Q('{x}')"
 
-            formula = f"{y_str} ~ {x_str} + {cov_str}"
+            formula = (
+                f"{y_str} ~ {x_str} + {cov_str}"
+                if len(cov) > 0
+                else f"{y_str} ~ {x_str}"
+            )
             if len(cat_cov) > 0:
                 formula += f" + {cat_cov_str}"
 
@@ -948,7 +920,11 @@ def cal_corr_v2(
             # raise e
 
     else:
-        raise ValueError("x and y  and model_type should be all str or list of str," + f"but is {type(x)}, {type(y)}, {type(model_type)}"+"not support for other type")
+        raise ValueError(
+            "x and y  and model_type should be all str or list of str,"
+            + f"but is {type(x)}, {type(y)}, {type(model_type)}"
+            + "not support for other type"
+        )
 
 
 def generate_states_cols(res_df, pvalue_col="pvalue"):
@@ -1107,8 +1083,9 @@ def cal_corr_multivar(
 
 
 import matplotlib.pyplot as plt
-from skmisc.loess import loess
 import seaborn as sns
+from skmisc.loess import loess
+
 
 def plot_corrs(
     data,
@@ -1118,7 +1095,7 @@ def plot_corrs(
     beta=None,
     pvalue=None,
     scatter_kw=None,
-    line_kw = None,
+    line_kw=None,
     title=None,
     ax=None,
     model_type=None,
@@ -1162,7 +1139,7 @@ def plot_corrs(
         title += f"{x} vs {y}"
     # 绘制散点图
     # line_kw.pop("ci")
-    sns.lineplot(data=data, x=x, y=y, ax=ax, color="black", ci = None, **line_kw)
+    sns.lineplot(data=data, x=x, y=y, ax=ax, color="black", ci=None, **line_kw)
 
     ax.scatter(data[x], data[y], **default_scatter_kw)
 
