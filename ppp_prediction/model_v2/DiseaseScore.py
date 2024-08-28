@@ -19,7 +19,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 from scipy.stats import bootstrap
-from ppp_prediction.metrics import NRI, IDI, roc_test, compareC
 
 
 def get_risk_strat_df(data=None, y_true=None, y_pred=None, k=10, n_resample=1000):
@@ -451,8 +450,8 @@ class DiseaseScoreModel:
             to_cal_df[self.label], to_cal_df[combination_name], ci=True
         )
 
-        c_index["method"] = combination_name
-        auc_metrics["method"] = combination_name
+        c_index["model"] = combination_name
+        auc_metrics["model"] = combination_name
 
         c_index["disease"] = self.disease_name
         auc_metrics["disease"] = self.disease_name
@@ -540,7 +539,7 @@ class DiseaseScoreModel:
             metrics_list.append(
                 {
                     "disease": self.disease_name,
-                    "method": score_name,
+                    "model": score_name,
                     metrics_name: metrics_score,
                 }
             )
@@ -879,6 +878,11 @@ class DiseaseScoreModel:
             to_cal_df = by_data[[self.label, ref, new]].dropna().copy()
 
             total = {}
+
+            total["ref"] = ref
+            total["new"] = new
+            total["disease"] = self.disease_name
+
             # NRI
             NRI_res = NRI(
                 to_cal_df[self.label],
@@ -887,6 +891,7 @@ class DiseaseScoreModel:
                 ci=ci,
                 n_resamples=n_resample,
             )
+            total.update(NRI_res)
 
             # IDI
             IDI_res = IDI(
@@ -896,21 +901,122 @@ class DiseaseScoreModel:
                 ci=ci,
                 n_resamples=n_resample,
             )
+            total.update(IDI_res)
 
             # AUC diff
             auc_diff_res = roc_test(
                 to_cal_df[self.label], to_cal_df[ref], to_cal_df[new]
             )
+            total.update(auc_diff_res)
 
             # C diff
-            c_diff_res = compareC(data[T], data[event], to_cal_df[ref], to_cal_df[new])
+            if self.E and self.T:
+                c_diff_res = compareC(
+                    to_cal_df[self.T],
+                    to_cal_df[self.label],
+                    to_cal_df[ref],
+                    to_cal_df[new],
+                )
+                total.update(c_diff_res)
 
-            total["ref"] = ref
-            total["new"] = new
-            total["disease"] = self.disease_name
-            total.update(NRI_res)
-            total.update(IDI_res)
-            total.update(auc_diff_res)
-            total.update(c_diff_res)
             compare_result_list.append(total)
         return pd.DataFrame(compare_result_list)
+
+    def plot_performance(
+        self,
+        metric="c_index",
+        return_df=False,
+        **kwargs,
+    ):
+        """
+        if metric is a function, then use it to calculate the metrics
+        """
+        # get metrics_df
+        c_df, auc_df = self.get_metrics_df()
+        if metric == "c_index" and c_df is not None:
+            plt_data = c_df
+            y = "c_index"
+            y_LCI = "c_index_LCI"
+            y_UCI = "c_index_UCI"
+            y_name = "C-index"
+
+        elif metric == "auc" and auc_df is not None:
+            plt_data = auc_df
+            y = "AUC"
+            y_LCI = "AUC_LCI"
+            y_UCI = "AUC_UCI"
+            y_name = "AUC"
+
+        elif metric == "brier_score":
+            plt_data = self.brier_score
+            y = "brier_score"
+            y_LCI = None
+            y_UCI = None
+
+            y_name = "Brier Score"
+        elif callable(metric):
+            metric_name = kwargs.pop("metric_name", metric.__name__)
+            use_calibrate = kwargs.pop("use_calibrate", False)
+            plt_data = self.get_metrics_by_user(
+                metric, metrics_name=metric_name, use_calibrate=use_calibrate
+            )
+            y = metric_name
+            if f"{y}_LCI" in plt_data.columns:
+                y_LCI = f"{y}_LCI"
+                y_UCI = f"{y}_UCI"
+            else:
+                y_LCI = y_UCI = None
+            y_name = metric_name
+        else:
+            raise ValueError("metric should be c_index or auc")
+        p = (
+            ggplot(
+                data=plt_data,
+                mapping=aes(x="model", y=y, color="model"),
+            )
+            # + facet_wrap("disease", scales="free_y")
+            + geom_point(alpha=0.8, size=3, position=position_dodge(width=0.5))
+        )
+        if y_LCI is not None:
+            p = p + geom_linerange(
+                mapping=aes(ymin=y_LCI, ymax=y_UCI),
+                size=1,
+                alpha=0.8,
+                position=position_dodge(width=0.5),
+            )
+        p = (
+            p
+            + theme_classic(base_family="Calibri", base_size=12)  # 使用Tufte主题
+            + theme(axis_line=element_line())
+            + theme(
+                figure_size=(12, 6),
+                legend_position="none",
+                axis_text_x=element_text(angle=90),
+                strip_background=element_blank(),
+                axis_text=element_text(size=12),  # 调整轴文字大小
+                axis_title=element_text(size=14),  # 调整轴标题大小和样式
+                legend_title=element_text(size=14),  # 调整图例标题大小和样式
+                legend_text=element_text(),  # 调整图例文字大小
+                strip_text=element_text(size=14),  # 调整分面标签的大小和样式
+                plot_title=element_text(size=16, hjust=0.5),  # 添加图表标题并居中
+                # plot_margin = margin(10, 10, 10, 10)  # 设置图表边距
+            )
+            # + guides(color=False)
+            # + scale_color_manual(values=colorset)
+            + scale_color_manual(values=self.color_set)
+            + labs(
+                x="Method",  # 设置X轴标签
+                # y="C-index",  # 设置Y轴标签
+                y=y_name,
+                # color="Method",  # 设置图例标题
+                title="Comparison of Methods",  # 添加图表标题
+            )
+            # + coord_flip()
+        )
+        if return_df:
+            return p, plt_data
+        else:
+            return p
+
+
+# save_fig(
