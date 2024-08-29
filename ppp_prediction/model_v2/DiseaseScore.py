@@ -420,6 +420,13 @@ class DiseaseScoreModel:
         self.test_score[combination_name] = get_predict_v2_from_df(
             model, self.test, combination
         )
+        ## add the score into train_score
+        self.train[combination_name] = get_predict_v2_from_df(
+            model, self.train, combination
+        )
+        self.test[combination_name] = get_predict_v2_from_df(
+            model, self.test, combination
+        )
 
         # upadte to combination
         self.fitted_model_dict[combination_name] = model
@@ -929,7 +936,7 @@ class DiseaseScoreModel:
         **kwargs,
     ):
         """
-        if metric is a function, then use it to calculate the metrics
+        if metric is a function, then use it to calculate the metrics; works like `get_metrics_by_user`
         """
         # get metrics_df
         c_df, auc_df = self.get_metrics_df()
