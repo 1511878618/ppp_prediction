@@ -346,6 +346,7 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
 
     if method_list is not None:
         models_params = {k: v for k, v in models_params.items() if k in method_list}
+    print(f"y_var: {y_var}, X_var: {X_var}")
 
     train_df = train_df[[y_var] + X_var].copy().dropna()
     test_df = test_df[[y_var] + X_var].copy().dropna()

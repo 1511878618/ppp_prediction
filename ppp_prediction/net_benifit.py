@@ -75,7 +75,12 @@ def _plot_net_benefit(
 
     # Plotting
     for idx, modelname in enumerate(plot_df["model"].unique()):
-        color = color_names[idx]  # Directly use color from color_names by index
+        if isinstance(color_names, list):
+            color = color_names[idx]  # Directly use color from color_names by index
+        elif isinstance(color_names, dict):
+            color = color_names[modelname]
+        else:
+            raise ValueError("color_names must be a list or a dictionary")
         model_df = plot_df[plot_df["model"] == modelname]
         if smoothed_data and modelname in smoothed_data:
             smoothed = smoothed_data[modelname]

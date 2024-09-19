@@ -9,7 +9,7 @@ from lifelines.utils import concordance_index
 from pandas import DataFrame
 
 from ppp_prediction.ci import bootstrap_ci
-from ppp_prediction.corr import rank_INT
+from ppp_prediction.norm import rank_INT
 
 
 def get_cat_var_name(x):
@@ -27,6 +27,58 @@ def get_cat_var_subname(x):
         return x
 
 
+class columnsFormatV1:
+    """
+    format columns of df to remove space
+
+    use format to remove
+
+    use reverse to get original column name from formatted column name
+    """
+
+    def __init__(self, data):
+        self.data = data
+        self.columns = data.columns
+
+        self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】 ><+-"
+        self.columns_dict = {
+            i: "a_" + re.sub(
+                f"[{re.escape(self.special_chars)}]",
+                "_",
+                i,
+                # i.translate(str.maketrans("", "", string.punctuation)).replace(
+                #     " ", "_"
+                # ),
+            )
+            for i in self.columns
+        }
+        self.columns_dict_reverse = {v: k for k, v in self.columns_dict.items()}
+
+    def format(self, data):
+        return data.rename(columns=self.columns_dict)
+
+    def reverse(self, data):
+        return data.rename(columns=self.columns_dict_reverse)
+
+    def get_format_column(self, column):
+        if isinstance(column, list):
+            return [self.columns_dict.get(i, i) for i in column]
+        return self.columns_dict.get(column, column)
+
+    def get_reverse_column(self, column):
+        if isinstance(column, list):
+            return [self.columns_dict_reverse.get(i, i) for i in column]
+
+        return self.columns_dict_reverse.get(column, column)
+
+    def __str__(self):
+        return f"columnsFormat: {self.columns_dict}"
+
+    def __repr__(self):
+        return self.__str__()
+
+
+
 class columnsFormat:
     """
     format columns of df to remove space
@@ -39,21 +91,16 @@ class columnsFormat:
     def __init__(self, data):
         self.data = data
         self.columns = data.columns
-        # self.columns_dict = {
-        #     # i: i.replace(" ", "_").replace("-", "_").replace(",", "_")
-        #     # for i in self.columns
-        #     j: f"a_{i}"
-        #     for i, j in enumerate(self.columns)
-        # }
-        self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】"
+
+        self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】 ><+-"
         self.columns_dict = {
-            i: "a_"
-            + re.sub(
+            i: re.sub(
                 f"[{re.escape(self.special_chars)}]",
                 "_",
-                i.translate(str.maketrans("", "", string.punctuation)).replace(
-                    " ", "_"
-                ),
+                i,
+                # i.translate(str.maketrans("", "", string.punctuation)).replace(
+                #     " ", "_"
+                # ),
             )
             for i in self.columns
         }
@@ -188,28 +235,32 @@ def run_cox(
         for c_cov in cov:
             tmp_df[c_cov] = tmp_df[c_cov].astype(float)
         for c_car_cov in cat_cov:
-            tmp_df[c_car_cov] = tmp_df[c_car_cov].astype(int)
+            tmp_df[c_car_cov] = tmp_df[c_car_cov].astype(str)
         if norm_x is not None:
-            nunique = tmp_df[var[0]].nunique()
 
-            if nunique >= 3:
+            if cat_var_status:
+                to_norm = cov
+            else:
+                to_norm = var + cov
 
-                E_T_df = tmp_df[[E, T] + cov + cat_cov]
-
+            if len(to_norm) > 0:
+                print(f"normalizing {to_norm} by {norm_x}")
                 if norm_x == "zscore":
-                    other_df = tmp_df[var]
-                    other_df = (other_df - other_df.mean()) / other_df.std()
+                    tmp_df[to_norm] = (
+                        tmp_df[to_norm] - tmp_df[to_norm].mean()
+                    ) / tmp_df[to_norm].std()
+
                 elif norm_x == "int":
                     print(
                         f"normalizing x={var[0]} by rank inverse normal transformation"
                     )
-                    other_df = rank_INT(tmp_df[var + cov + cat_cov])
+                    tmp_df[to_norm] = rank_INT(tmp_df[to_norm])
 
                 else:
                     raise ValueError("norm_x should be zscore but", norm_x)
-                tmp_df = E_T_df.join(other_df)
+
             else:
-                print(f"nunique of {var} is {nunique} < 3, not normalize")
+                print(f"no quantitative var to norm")
 
         dfFormat = columnsFormat(df)  # to avoid space or special in column name
         tmp_df = dfFormat.format(tmp_df)
@@ -220,6 +271,7 @@ def run_cox(
         cov = dfFormat.get_format_column(cov)
         cat_cov = dfFormat.get_format_column(cat_cov)
         non_cat_cov = dfFormat.get_format_column([i for i in cov if i not in cat_cov])
+
         if cat_var_status:
             var_str = f"C({var[0]})"
         else:

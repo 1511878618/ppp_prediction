@@ -72,6 +72,7 @@ glmnet_lasso<-function(
   save_path = NULL
 ){
   # drop na
+  set.seed(2077)
   used_fatures = xvar
   p.fac <- rep(1, length(xvar))
   print("begin")

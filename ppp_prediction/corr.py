@@ -27,63 +27,63 @@ from statsmodels.stats.multitest import multipletests
 # from tqdm.rich import tqdm
 from tqdm.notebook import tqdm
 from tqdm.rich import tqdm
+from ppp_prediction.norm import rank_INT
+
+# def rank_INT(series, c=3.0 / 8, stochastic=True):
+#     """Perform rank-based inverse normal transformation on pandas series.
+#     If stochastic is True ties are given rank randomly, otherwise ties will
+#     share the same value. NaN values are ignored.
+
+#     Args:
+#         param1 (pandas.Series):   Series of values to transform
+#         param2 (Optional[float]): Constand parameter (Bloms constant)
+#         param3 (Optional[bool]):  Whether to randomise rank of ties
+
+#     Returns:
+#         pandas.Series
+#     """
+
+#     # Check input
+#     assert isinstance(series, pd.Series)
+#     assert isinstance(c, float)
+#     assert isinstance(stochastic, bool)
+
+#     # Set seed
+#     np.random.seed(123)
+
+#     # Take original series indexes
+
+#     raw_series = series.copy()
+#     # Drop NaNs
+#     series = series.loc[~pd.isnull(series)]
+#     orig_idx = series.index
+
+#     # Get ranks
+#     if stochastic == True:
+#         # Shuffle by index
+#         series = series.loc[np.random.permutation(series.index)]
+#         # Get rank, ties are determined by their position in the series (hence
+#         # why we randomised the series)
+#         rank = ss.rankdata(series, method="ordinal")
+#     else:
+#         # Get rank, ties are averaged
+#         rank = ss.rankdata(series, method="average")
+
+#     # Convert numpy array back to series
+#     rank = pd.Series(rank, index=series.index)
+
+#     # Convert rank to normal distribution
+#     transformed = rank.apply(rank_to_normal, c=c, n=len(rank))
+
+#     # return transformed[orig_idx]
+#     raw_series[orig_idx] = transformed[orig_idx]
+#     return raw_series
 
 
-def rank_INT(series, c=3.0 / 8, stochastic=True):
-    """Perform rank-based inverse normal transformation on pandas series.
-    If stochastic is True ties are given rank randomly, otherwise ties will
-    share the same value. NaN values are ignored.
-
-    Args:
-        param1 (pandas.Series):   Series of values to transform
-        param2 (Optional[float]): Constand parameter (Bloms constant)
-        param3 (Optional[bool]):  Whether to randomise rank of ties
-
-    Returns:
-        pandas.Series
-    """
-
-    # Check input
-    assert isinstance(series, pd.Series)
-    assert isinstance(c, float)
-    assert isinstance(stochastic, bool)
-
-    # Set seed
-    np.random.seed(123)
-
-    # Take original series indexes
-
-    raw_series = series.copy()
-    # Drop NaNs
-    series = series.loc[~pd.isnull(series)]
-    orig_idx = series.index
-
-    # Get ranks
-    if stochastic == True:
-        # Shuffle by index
-        series = series.loc[np.random.permutation(series.index)]
-        # Get rank, ties are determined by their position in the series (hence
-        # why we randomised the series)
-        rank = ss.rankdata(series, method="ordinal")
-    else:
-        # Get rank, ties are averaged
-        rank = ss.rankdata(series, method="average")
-
-    # Convert numpy array back to series
-    rank = pd.Series(rank, index=series.index)
-
-    # Convert rank to normal distribution
-    transformed = rank.apply(rank_to_normal, c=c, n=len(rank))
-
-    # return transformed[orig_idx]
-    raw_series[orig_idx] = transformed[orig_idx]
-    return raw_series
-
-
-def rank_to_normal(rank, c, n):
-    # Standard quantile function
-    x = (rank - c) / (n - 2 * c + 1)
-    return ss.norm.ppf(x)
+# def rank_to_normal(rank, c, n):
+#     # Standard quantile function
+#     x = (rank - c) / (n - 2 * c + 1)
+#     return ss.norm.ppf(x)
 
 
 def cal_residual(df, x: List, y: str, plus_mean=True, return_model=False):
@@ -585,7 +585,7 @@ def cal_corr_multivar_v2(
 
     return model_res.iloc[1:, :], metrics  # drop intercept
 
-
+from .cox import columnsFormat
 def cal_corr_v2(
     df: DataFrame,
     x: Union[str, List[str]],
@@ -720,7 +720,20 @@ def cal_corr_v2(
                     f"threads is {threads} and x is {x} and y is {y}, which is str, so don't supported for multi threads"
                 )
 
-            used_df = df[[x, y] + cofounder].copy().dropna(how="any")
+            raw_df = df[[x, y] + cofounder].copy().dropna(how="any")
+            # format columns 
+
+            dfFormat = columnsFormat(raw_df)  # to avoid space or special in column name
+            used_df = dfFormat.format(raw_df)
+
+            var = dfFormat.get_format_column(x)
+            y = dfFormat.get_format_column(y)
+
+            cov = dfFormat.get_format_column(cov)
+            cat_cov = dfFormat.get_format_column(cat_cov)
+
+
+
 
             # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them
             # for col in cofounder:
@@ -780,7 +793,7 @@ def cal_corr_v2(
                 formula += f" + {cat_cov_str}"
 
             if model_type == "glm":
-
+                
                 default_fit_params = {"disp": False}
                 for k in default_fit_params:
                     if k not in fit_params:
@@ -804,6 +817,25 @@ def cal_corr_v2(
             #     # metrics.update(cal_qt_metrics(Y, y_pred))
             #     metrics = cal_qt_metrics(Y, y_pred)
             elif model_type == "logistic":
+
+                # nacse 
+                ncase = used_df[y].sum()
+                if ncase <=30:
+                    warnings.warn(f"n_case is {ncase} for y={y}, which is less than 30")
+
+                    return pd.Series(
+                        {
+                            "var": x,
+                            "exposure": y,
+                            "model": model_type,
+                            "adjust_cov": 1 if adjust else 0,
+                            "norm_x": norm_x,
+                            "n_case": ncase,
+                            "error": "n_caseError",
+                            # "error": str(e),
+                        }
+                    )
+                    # return
                 # fit_params.update({"maxiter": 100})
                 # Reason: some params may not found solve, so try many
                 fit_params_list = [
@@ -864,7 +896,6 @@ def cal_corr_v2(
                     index={x_str: x},
                 )
                 .loc[x]
-                .to_dict()
             )
 
             result = {

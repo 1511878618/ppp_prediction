@@ -182,6 +182,16 @@ def getParser():
         required=False,
         default=None,
     ),
+    parser.add_argument(
+        "--comprisk_order",
+        dest="comprisk_order",
+        help="comprisk event order, like --comprisk_order control AAA CAD or --comprisk_order 0 1 2, Note this will enable run comprisk supported by R code",
+        required=False,
+        default=[],
+        nargs="+",
+
+    )
+    parser.add_argument("--test", dest="test", help="test mode for develop", required=False)
     parser.add_argument("-o", "--output", dest = "output", help = "outpu file name", required=True)
     parser.add_argument("-t", "--threads", dest="threads", help="processes of this ", default=5, type=int, required=False)
     parser.add_argument("--adjust", dest="adjust", help="regress_out_confounding", action="store_true", required=False)
@@ -345,6 +355,7 @@ if __name__ == "__main__":
     verbose = args.verbose
     date_col = args.date_key_cols
     event_col = args.event_key_cols
+    comprisk_order = args.comprisk_order if len(args.comprisk_order) > 0 else None
 
     timing = Timing()
     # # confilict params check
@@ -365,6 +376,8 @@ if __name__ == "__main__":
         cat_cond_cols=cat_cond_cols,
     )
     # print(main_df)
+
+
     if date_col is not None and event_col is not None and method in ["cox", "auto"]:
         if date_col not in main_df.columns:
             raise ValueError("date_col not in main_df")
@@ -372,7 +385,30 @@ if __name__ == "__main__":
             raise ValueError("event_col not in main_df")
 
         # run cox
-        results_df = run_cox(
+        if comprisk_order is not None:
+            # run comprisk
+            from ppp_prediction.cmprisk import cmprisk_parallel
+            if isinstance(col_dict["key_cols"], str):
+                col_dict["key_cols"] = [col_dict["key_cols"]]
+            
+            res = [
+                cmprisk_parallel(
+                data=main_df if not args.test else main_df.groupby(col).head(100),
+                exposure=col_dict["query_cols"],
+                outcome=col,
+                time=date_col,
+                outcome_order=comprisk_order,
+                covariates=col_dict["cond_cols"] + col_dict["cat_cond_cols"],
+                cat_cols=col_dict["cat_cond_cols"],
+                saveDir=None,
+            ).assign(
+                key=col
+            ) for col in col_dict["key_cols"]
+            ]
+            results_df = pd.concat(res)
+
+        else:
+            results_df = run_cox(
             df=main_df,
             var=col_dict["query_cols"],
             E=event_col,
@@ -411,41 +447,3 @@ if __name__ == "__main__":
         results_df.to_csv(output, index=False, na_rep="NA", sep="\t")
 
     print(f"总共消耗{timing():.2f}s")
-
-    # if lowmem: # save to local tmp file and read while running
-    #     parts_df = []
-    #     tmp_dir = Path(output).parent
-    #     print(f"--lowmem ， 采用低内存模式，将会保存中间文件到本地，可能会占用大量磁盘空间，保存在该路径下：{str(tmp_dir)}")
-
-    #     for idx, part_cols in enumerate(average_list(query_cols, threads)):
-    #         tmp_save_file = tmp_dir/f"tmp_part_{idx}.pkl"
-    #         if cond_path: # save with cond_cols
-    #             main_df[part_cols + key_cols + cond_cols].to_pickle(str(tmp_save_file))
-    #         else:
-    #             main_df[part_cols + key_cols].to_pickle(str(tmp_save_file))
-    #         parts_df.append(tmp_save_file)
-    # else:
-    #     if cond_path:
-    #         parts_df = [main_df[parts_col + key_cols + cond_cols].copy() for parts_col in average_list(query_cols, threads)]
-    #     else:
-    #         parts_df = [main_df[parts_col + key_cols].copy() for parts_col in average_list(query_cols, threads)]  # [part1_df, part2_df, ....]
-
-    # del query_df  # clear for memory
-    # del main_df # clear for memory
-
-    # # TODO: support for regression method
-    # if cond_path:
-    #     cal_corrs_multiprocess = partial(cross_corrs, key_cols = key_cols, method=method, cond_cols=cond_cols)
-    # else:
-    #     cal_corrs_multiprocess = partial(cross_corrs, key_cols = key_cols, method=method)
-
-    # with Pool(threads) as p:
-    #     res = p.map(cal_corrs_multiprocess, parts_df)
-
-    # results_df = pd.concat(res).reset_index(drop=True)
-    # results_df = generate_multipletests_result(results_df, pvalue_col="pvalue", alpha=0.05, method="fdr_bh")
-    # if lowmem:
-    #     for tmp_path in parts_df:
-    #         os.remove(tmp_path)
-
-    # save files

@@ -14,7 +14,7 @@ from pathlib import Path
 from ppp_prediction.utils import DataFramePretty
 import pickle
 
-    
+
 from sklearn.pipeline import Pipeline
 from typing import Union, List
 from sklearn.utils._metadata_requests import process_routing
@@ -336,11 +336,8 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
         # },
     }
 
-
-
     if method_list is not None:
         models_params = {k: v for k, v in models_params.items() if k in method_list}
-
 
     train_df = train_df[[y_var] + X_var].copy().dropna()
     test_df = test_df[[y_var] + X_var].copy().dropna()
@@ -407,10 +404,8 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
         ## select the currently best
         # print(best_models)
 
-
         best_models = list(sorted(best_models, key=lambda x: x[-1], reverse=True))
         best_model_name, best_model, *_ = best_models[0]
-
 
     # 还原原始的train_df
     train_df = pd.concat([train_df, val_df], axis=0)
@@ -444,8 +439,8 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
     #     best_model.features = X_var # add feature names to model
 
     # except:
-    #     print("can't assign feature names to model") 
-    #     pass 
+    #     print("can't assign feature names to model")
+    #     pass
     try:
         if save_dir:
             Path(save_dir).parent.mkdir(parents=True, exist_ok=True)
@@ -877,7 +872,6 @@ class EnsembleModel(object):
         # weight_model.features = X_var
         self.weight_model = weight_model
         return weight_model, train_metrics, test_metrics
-
 
 
 def fit_best_model_bootstrap(

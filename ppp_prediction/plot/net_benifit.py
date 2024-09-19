@@ -1,3 +1,4 @@
+# dca_df["model"].unique()
 """
 Code From: https://github.com/MSKCC-Epi-Bio/dcurves
 Modified by Tingfeng Xu
@@ -68,14 +69,20 @@ def _plot_net_benefit(
 
     # Validate color_names
     modelnames = plot_df["model"].unique()
-    if color_names and len(color_names) != len(modelnames):
+    if isinstance(color_names, list) and len(color_names) != len(modelnames):
+
         raise ValueError(
             "The length of color_names must match the number of unique models"
         )
 
     # Plotting
     for idx, modelname in enumerate(plot_df["model"].unique()):
-        color = color_names[idx]  # Directly use color from color_names by index
+        if isinstance(color_names, list):
+            color = color_names[idx]  # Directly use color from color_names by index
+        elif isinstance(color_names, dict):
+            color = color_names[modelname]
+        else:
+            raise ValueError("color_names must be a list or a dictionary")
         model_df = plot_df[plot_df["model"] == modelname]
         if smoothed_data and modelname in smoothed_data:
             smoothed = smoothed_data[modelname]

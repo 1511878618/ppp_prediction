@@ -17,6 +17,253 @@ except:
 
 import os 
 
+import re
+import string
+
+from functools import wraps
+from typing import List, Optional
+
+
+
+from ppp_prediction.cox import columnsFormatV1
+
+from functools import wraps
+from typing import List, Optional
+
+
+def dataframe_column_name_convert(
+    data_params,
+    to_check_col_params: Optional[List[str]] = None,
+    return_reconvert_col_params: Optional[List[str]] = None,
+):
+    """
+    like run_cmprisk function accept run_cmprisk(data, exposure, outcome, time, covariates, cat_cols, outcome_order,...)
+        1. data_params = "data",  # the data parameter name in the function
+        2. to_check_col_params = ["exposure", "outcome", "time", "covariates", "cat_cols"], # the columns to check in the data parameter, which need to convert to No special characters
+        3. the function will return a dataframe, and part of the columns need to convert back to the original column name
+
+    Bugs:
+    1. params should not be passed as a postional argument, should be passed as a keyword argument
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # print(args, kwargs)
+            if data_params not in kwargs:
+                raise ValueError(
+                    f"No data found in the arguments to format with kwargs: {kwargs.keys()}"
+                )
+            # format the data columns
+            dfFormat = columnsFormatV1(kwargs[data_params])
+            formated_df = dfFormat.format(
+                kwargs[data_params]
+            ).copy()  # copy the data to avoid change the original data
+
+            # check the columns in the data to convert
+            for to_check_col in to_check_col_params:
+
+                # make sure all to_check_col_params in the kwargs
+                if to_check_col not in kwargs:
+                    raise ValueError(
+                        f"No {to_check_col} found in the arguments to format with kwargs: {kwargs.keys()}"
+                    )
+
+                # check if the to_check_col is a list
+
+                to_check_col = kwargs[to_check_col]
+                if isinstance(to_check_col, str):
+                    to_check_col = [to_check_col]
+
+                # make sure each params include the columns isin the data
+                for each_col in to_check_col:
+                    if each_col not in kwargs[data_params].columns:
+                        raise ValueError(
+                            f"No {to_check_col} found in the data to format with columns: {kwargs[data_params].columns}"
+                        )
+            # updated at the same place with dfFormat
+            for to_check_col in to_check_col_params:
+                extracted_value = kwargs[to_check_col]
+                if isinstance(extracted_value, str):
+                    kwargs[to_check_col] = dfFormat.get_format_column(extracted_value)
+                elif isinstance(extracted_value, list):
+                    kwargs[to_check_col] = [
+                        dfFormat.get_format_column(each_value)
+                        for each_value in extracted_value
+                    ]
+                else:
+                    raise ValueError(
+                        f"Unsupported type of {to_check_col} found in the arguments to format with kwargs: {kwargs.keys()}"
+                    )
+
+            # update the data with the formated data
+            kwargs[data_params] = formated_df
+            print(formated_df.columns)
+
+            result = func(*args, **kwargs)
+
+            for reconvert_col in return_reconvert_col_params:
+                if reconvert_col not in result.columns:
+                    raise ValueError(
+                        f"No {reconvert_col} found in the result to reconvert, developer need to check the return_reconvert_col_params with the result columns: {result.columns} and the return_reconvert_col_params: {return_reconvert_col_params}"
+                    )
+
+                result[reconvert_col] = result[reconvert_col].apply(
+                    lambda x: dfFormat.get_reverse_column(x),
+                )
+
+            return result
+
+        return wrapper
+
+    return decorator
+
+def parallel_df_decorator(
+    data_params, to_split_param, other_keep_param: Optional[List[str]] = None
+):
+    """
+    A decorator to split the data by a column or a list of columns and run the function in parallel
+    :param data_params: str, the parameter name of the data in the function, like `data`
+    :param to_split_param: str, the parameter name of the column or a list of columns to split the data, like `exposure`
+    :param other_keep_param: list, the list of other parameters to keep in the data, like `["outcome", "time"]`, which are the columns to keep in the data when split the data
+
+    the function must have threads parameter to specify the number of threads to run the function in parallel
+
+    Example:
+    # define a single function
+    def test_func(data, exposure, outcome, time, other_param):
+        return data
+
+    # use the decorator to parallel the function
+    @parallel_df_decorator(data_params="data", to_split_param="exposure", other_keep_param=["outcome", "time"])
+    def test_func_parallel(data, exposure, outcome, time, other_param, threads=4):
+        return data
+
+    # run the function
+    test_func_parallel(data, exposure=["A", "B"], outcome="disease", time="survTime", other_param="other")
+
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+
+            # split the data
+            # to_split_param is the parameter to keep columns name of the data to split, e.g. exposure
+
+            if to_split_param in kwargs:
+                split_by = kwargs[to_split_param]
+
+                if isinstance(split_by, str):
+                    raise ValueError(
+                        f"{to_split_param} should be a list of columns to split the data"
+                    )
+            else:
+                raise ValueError(f"{to_split_param} is not found in the arguments")
+
+            # other keep params passed params to keep in the data each params should be a string or a list of strings that are the column names; e.g. ["outcome", "time"]
+            to_keep_cols = []
+            # if other_keep_param:
+
+            if other_keep_param is not None:
+
+                keep_params = {k: kwargs[k] for k in other_keep_param}
+                to_keep_cols = []
+                for k, v in keep_params.items():
+                    if isinstance(v, str):
+                        to_keep_cols.append(v)
+                    elif isinstance(v, list):
+                        to_keep_cols += v
+                    else:
+                        # raise ValueError(f"{k} should be a string or a list of strings")
+                        pass
+
+            #  extract data
+            if data_params not in kwargs:
+                raise ValueError(f"{data_params} is not found in the arguments")
+            data = kwargs.pop(data_params)
+
+            # pop the split_by param
+            kwargs.pop(to_split_param)
+
+            # check all cols are in the data
+            for col in to_keep_cols:
+                if col not in data.columns:
+                    raise ValueError(f"{col} is not found in the data columns")
+            for col in split_by:
+                if col not in data.columns:
+                    raise ValueError(f"{col} is not found in the data columns")
+
+            # print(data_params, split_by, to_keep_cols)
+            # for i in split_by:
+            #     print(data[[i, *to_keep_cols]].head())
+            threads = kwargs.get("threads", 1)
+            if threads > 1:
+                # parallel
+                import multiprocessing
+                from joblib import Parallel, delayed
+
+                num_cores = multiprocessing.cpu_count()
+                threads = min(threads, num_cores)
+                print(f"Using {threads} threads to parallel")
+
+                # run the function in parallel
+                res = Parallel(n_jobs=threads)(
+                    delayed(func)(
+                        *args,
+                        **{
+                            data_params: data[
+                                [i, *to_keep_cols]
+                            ].copy(),  # only pass the data that is needed
+                            to_split_param: i,
+                        },
+                        **kwargs,
+                    )
+                    for i in split_by
+                )
+                # return a list of dataframes to concat
+
+            else:
+                # not parallel
+
+                res = [
+                    func(
+                        *args,
+                        **{
+                            data_params: data[
+                                [i, *to_keep_cols]
+                            ].copy(),  # only pass the data that is needed
+                            to_split_param: i,
+                        },
+                        **kwargs,
+                    )
+                    for i in split_by
+                ]
+
+            res_df = pd.concat(res)
+
+            return res_df
+
+        return wrapper
+
+    return decorator
+
+
+# 替换字符串中的特殊字符
+def replace_special_chars(text, special_chars="-+"):
+    # 使用 translate 删除 string.punctuation 中的ASCII标点符号
+    text = text.translate(
+        str.maketrans("", "", "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】")
+    )
+
+    # 使用正则表达式将特殊字符替换为下划线 "_"
+    text = re.sub(f"[{re.escape(special_chars)}]", "_", text)
+
+    # 替换空格为下划线
+    text = text.replace(" ", "_")
+
+    return text
+
 
 def downsample_by(from_df, ref_df, by_cols, ratio=1):
     """

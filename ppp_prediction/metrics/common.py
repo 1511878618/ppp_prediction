@@ -32,6 +32,11 @@ from scipy.stats import pearsonr, spearmanr
 import scipy.stats as ss
 from .utils import find_best_cutoff
 from .ci import bootstrap_ci
+from sklearn.metrics import confusion_matrix
+from ppp_prediction.metrics.ci import bootstrap_ci
+from sklearn.metrics import roc_curve
+import numpy as np
+
 
 def cal_binary_metrics(y, y_pred, ci=False, n_resamples=100):
 
@@ -183,3 +188,99 @@ def APR_bootstrap(y_true, y_pred, **args):
 
     )
     return APR, APR_CI
+
+
+
+
+def cal_DR(y_true, y_pred, ci=False, n_resamples=100):
+    """
+    Require y_pred to be binary results
+    """
+
+    if not ci:
+        cm = confusion_matrix(y_true, y_pred)
+        DR = cm[1, 1] / (cm[1, 0] + cm[1, 1])
+        return DR
+    else:
+        DR, (DR_LCI, DR_UCI) = bootstrap_ci(
+            y_true=y_true,
+            y_pred=y_pred,
+            metric=lambda y_true, y_pred: cal_DR(y_true, y_pred, ci=False),
+            n_resamples=n_resamples,
+        )
+        return DR, DR_LCI, DR_UCI
+
+
+def cal_DR_at_FPR(y_true, y_pred, at_min_fpr, ci=False, n_resamples=100):
+    """
+    y_pred should be continuous
+    """
+    # get cutoff by fpr
+    fpr, tpr, cutoff = get_cutoff_at_FPR(y_true, y_pred, at_min_fpr)
+
+    y_pred = (y_pred > cutoff).astype(int)
+
+    return cal_DR(y_true, y_pred, ci=ci, n_resamples=n_resamples)
+
+
+def get_cutoff_at_FPR(
+    y_true,
+    y_pred,
+    at_min_fpr,
+):
+    """
+    y_pred should be continuous
+    """
+    # get cutoff by fpr
+    fpr, tpr, thresholds = roc_curve(y_true, y_pred)
+    # check the closest fpr to at_min_fpr
+    idx = np.argmin(np.abs(fpr - at_min_fpr))
+    cutoff = thresholds[idx]
+
+    print(
+        f"Given min_fpr: {at_min_fpr}, the closest fpr is {fpr[idx]:.2f} and cutoff is {cutoff:.2f} with tpr: {tpr[idx]:.2f}"
+    )
+
+    return tpr, fpr, cutoff
+
+
+def cal_LR(
+    y_true,
+    y_pred,
+    ci=False,
+    n_resamples=100,
+):
+    if not ci:
+        cm = confusion_matrix(y_true, y_pred)
+        DR = cm[1, 1] / (cm[1, 0] + cm[1, 1])
+        FPR = cm[0, 1] / (cm[0, 0] + cm[0, 1])
+        LR = DR / FPR
+
+        return LR
+    else:
+
+        LR, (LR_LCI, LR_UCI) = bootstrap_ci(
+            y_true=y_true,
+            y_pred=y_pred,
+            metric=lambda y_true, y_pred: cal_LR(y_true, y_pred, ci=False),
+            n_resamples=n_resamples,
+        )
+        return LR, LR_LCI, LR_UCI
+
+
+def cal_LR_at_FPR(
+    y_true,
+    y_pred,
+    at_min_fpr,
+    ci=False,
+    n_resamples=100,
+):
+    """
+    y_pred should be continuous
+    """
+    # get cutoff by fpr
+    fpr, tpr, cutoff = get_cutoff_at_FPR(y_true, y_pred, at_min_fpr)
+
+    y_pred = (y_pred > cutoff).astype(int)
+
+    return cal_LR(y_true, y_pred, ci=ci, n_resamples=n_resamples)

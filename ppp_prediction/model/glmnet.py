@@ -54,7 +54,8 @@ def run_glmnet(
             weights = robjects.FloatVector(weights)
         else:
             weights = robjects.FloatVector(weights)
-
+    print(f"train shape: {train.shape}")
+    # if
     with localconverter(robjects.default_converter + pandas2ri.converter):
         result = glmnet_func(
             train,

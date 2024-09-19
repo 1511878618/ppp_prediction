@@ -13,6 +13,8 @@ import seaborn as sns
 from plotnine import *
 from sklearn.metrics import brier_score_loss, roc_curve, auc
 from dcurves import dca
+from functools import reduce, partial
+
 
 import logging
 
@@ -342,6 +344,21 @@ class DiseaseScoreModel_V2:
 
             meta_index_col is the index to record model summary information by a structure of DataFrame
 
+                model_config:{
+                    "AgeSex": {
+                        "xvar":["age", "sex"]
+                        }
+                    "KidneyImage": {
+                        "xvar":KidneyImage
+                        "model":a function accept (train= train, test=test,xvar, y, **kwargs) and return (model, *others)
+                        "config":{
+                            "cv":5
+                            ...
+                        } # other config
+                        }
+        }
+                }
+                
         model_table:
 
                           param                                           \
@@ -367,19 +384,22 @@ AgeSex      xgboost        NaN
         self.disease_df = disease_df
 
         # step1 split data; can be down by train_eid, test_eid or random split or user run train_test_split
-        if train_eid:
+        if train_eid is not None:
             self.train = disease_df.query(f"{eid} in @train_eid")
-        if test_eid:
+        if test_eid is not None:
             self.test = disease_df.query(f"{eid} in @test_eid")
-        if not train_eid and not test_eid:
+        if train_eid is None and test_eid is None:
             logging.warning(f"Random split data with test_size: {test_size:.2f}")
             self.train, self.test = train_test_split(disease_df, test_size=test_size)
+
+        self.train.reset_index(drop=True, inplace=True)
+        self.test.reset_index(drop=True, inplace=True)
 
         self.label = label
         self.disease_name = disease_name or label
         self.eid = eid
 
-        self.other_keep_cols = other_keep_cols
+        self.other_keep_cols = other_keep_cols if other_keep_cols else []
 
         logging.info(
             f"Loading data with train cases {self.train[label].sum()} and test cases {self.test[label].sum()} of {self.disease_name}, while {len(self.train.columns)} columns"
@@ -565,30 +585,25 @@ AgeSex      xgboost        NaN
 
         to_cal_df[score_name] = (to_cal_df[score_name] - train_mean) / train_std
 
-        # cal metrics
-        c_index_df = run_cox(to_cal_df, var=score_name, E=self.E, T=self.T, ci=True)
-        c_index_dict = c_index_df.iloc[0].T.to_dict()
+        # cal c
+        if self.E and self.T:
+            c_index_df = run_cox(to_cal_df, var=score_name, E=self.E, T=self.T, ci=True)
+            c_index_dict = c_index_df.iloc[0].T.to_dict()
+            for metric_name, metric_value in c_index_dict.items():
+                self.model_table.loc[name, ("c_index", metric_name)] = metric_value
+
+        # cal auc
         auc_metrics_dict = cal_binary_metrics(
             to_cal_df[self.label], to_cal_df[score_name], ci=True
         )
-
-        # self.metrics_dict[combination_name] = {
-        #     "c_index": c_index,
-        #     "auc_metrics": auc_metrics,
-        # }
+        for metric_name, metric_value in auc_metrics_dict.items():
+            self.model_table.loc[name, ("auc", metric_name)] = metric_value
 
         # update model into model_table
         self.model_table.loc[name, ("status", "fitted")] = 1
 
         self.model_table.loc[name, ("model", "model")] = model
         self.model_table.loc[name, ("basic", "score_name")] = score_name
-
-        # update metrics
-        for metric_name, metric_value in c_index_dict.items():
-
-            self.model_table.loc[name, ("c_index", metric_name)] = metric_value
-        for metric_name, metric_value in auc_metrics_dict.items():
-            self.model_table.loc[name, ("auc_metrics", metric_name)] = metric_value
 
     def calibrate(self, method="logitstic"):
         """
@@ -606,18 +621,20 @@ AgeSex      xgboost        NaN
         # for score_name, score_model_config in self.model_config.items():
         for name, score_name in self.model_table[("basic", "score_name")].items():
 
+            from ppp_prediction.calibration import calibrate
             raw_train_score = self.train_score[[self.label, score_name]].dropna()
             raw_test_score = self.test_score[[self.label, score_name]].dropna()
 
-            pred_train_calibrated, pred_test_calibrated, calibration_model = (
-                calibration_score(
-                    raw_train_pred=raw_train_score[score_name],
-                    raw_test_pred=raw_test_score[score_name],
-                    train_y=raw_train_score[self.label],
-                    method=method,
-                    return_model=True,
-                )
+            calibrated_object = calibrate(
+                X_train = raw_train_score[score_name],
+                X_test = raw_test_score[score_name],
+                y_train = raw_train_score[self.label],
+                y_test = raw_test_score[self.label],
+                n_bins = 10, 
+                need_scale=True,
             )
+
+            calibration_model = calibrated_object['best_clf']
 
             # TODO: use model.predict(model=model, data=self.train, xvar = combination) to replace the following
             self.train_score_calibrated[score_name] = get_predict_v2_from_df(
@@ -658,6 +675,24 @@ AgeSex      xgboost        NaN
             self.set_color_set()
         return self.method_colorset
 
+    def get_metrics_by_user_multi(
+        self, metrics_dict=None, use_calibrate=False, **kwargs
+    ):
+        """
+        metrics_dict: a dict with key as the metrics_name and value as the metrics_fn
+        """
+        metrics_list = []
+        for metrics_name, metrics_fn in metrics_dict.items():
+            metrics_df = self.get_metrics_by_user(
+                metrics_fn,
+                metrics_name=metrics_name,
+                use_calibrate=use_calibrate,
+                **kwargs,
+            )
+            metrics_list.append(metrics_df)
+
+        return reduce(lambda x, y: pd.merge(x, y), metrics_list)
+
     def get_metrics_by_user(
         self, metrics_fn, metrics_name=None, use_calibrate=False, **kwargs
     ):
@@ -685,12 +720,23 @@ AgeSex      xgboost        NaN
                 to_cal_df[score_name],
                 **kwargs,
             )
-            metrics_list.append(
-                {
-                    **row_dict,
-                    metrics_name: metrics_score,
-                }
-            )
+            if isinstance(metrics_score, dict):
+                metrics_list.append(
+                    {
+                        **row_dict,
+                        **metrics_score,
+                    }
+                )
+                logging.info(
+                    f"metrics {metrics_name} return a dict, will unpack it to the dataframe"
+                )
+            else:
+                metrics_list.append(
+                    {
+                        **row_dict,
+                        metrics_name: metrics_score,
+                    }
+                )
 
         return pd.DataFrame(metrics_list)
 
@@ -1132,7 +1178,11 @@ AgeSex      xgboost        NaN
 
     def plot_performance(
         self,
-        metric="c_index",
+        metric="auc",
+        # or
+        metrics_fn=None,
+        metrics_name=None,
+        # return
         return_df=False,
         **kwargs,
     ):
@@ -1153,7 +1203,7 @@ AgeSex      xgboost        NaN
             y_UCI = "c_index_UCI"
             y_name = "C-index"
 
-        elif metric == "auc_metrics":
+        elif metric == "auc":
             plt_data = (
                 self.model_table[["basic", metric]]
                 .copy()
@@ -1177,19 +1227,29 @@ AgeSex      xgboost        NaN
             y_UCI = None
 
             y_name = "Brier Score"
-        elif callable(metric):
-            metric_name = kwargs.pop("metric_name", metric.__name__)
+        elif metric is None and metrics_fn is not None:
+            if metrics_name is None:
+                if isinstance(metrics_fn, partial):
+                    raise ValueError(
+                        "metrics_name should be provided when metrics_fn is a functools.partial"
+                    )
+                metrics_name = metrics_fn.__name__
+
             use_calibrate = kwargs.pop("use_calibrate", False)
             plt_data = self.get_metrics_by_user(
-                metric, metrics_name=metric_name, use_calibrate=use_calibrate
+                metrics_fn, metrics_name=metrics_name, use_calibrate=use_calibrate
             )
-            y = metric_name
+            y = metrics_name
+            if y not in plt_data.columns:
+                raise ValueError(
+                    f"metrics_name {metrics_name} not found in the metrics_df, there are {plt_data.columns}"
+                )
             if f"{y}_LCI" in plt_data.columns:
                 y_LCI = f"{y}_LCI"
                 y_UCI = f"{y}_UCI"
             else:
                 y_LCI = y_UCI = None
-            y_name = metric_name
+            y_name = metrics_name
         else:
             raise ValueError("metric should be c_index or auc")
         p = (
