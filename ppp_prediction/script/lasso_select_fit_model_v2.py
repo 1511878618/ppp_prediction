@@ -48,11 +48,11 @@ def args_parse():
             """
         ),
     )
-    parser.add_argument("--train_dir", required=True, help="input train file")
-    parser.add_argument("--test_dir", required=True, help="input test file")
-    parser.add_argument("--output", required=True, help="output folder")
-    parser.add_argument("--label_dir", required=True, help="label file")
-    parser.add_argument("--label", required=True, help="label name")
+    parser.add_argument("--train_dir", required=False, help="input train file")
+    parser.add_argument("--test_dir", required=False, help="input test file")
+    parser.add_argument("--output", required=False, help="output folder")
+    parser.add_argument("--label_dir", required=False, help="label file")
+    parser.add_argument("--label", required=False, help="label name")
 
     # optional
     
