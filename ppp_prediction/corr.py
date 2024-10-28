@@ -721,7 +721,7 @@ def cal_corr_v2(
                 )
 
             raw_df = df[[x, y] + cofounder].copy().dropna(how="any")
-            # format columns 
+            # format columns
 
             dfFormat = columnsFormat(raw_df)  # to avoid space or special in column name
             used_df = dfFormat.format(raw_df)
@@ -731,9 +731,6 @@ def cal_corr_v2(
 
             cov = dfFormat.get_format_column(cov)
             cat_cov = dfFormat.get_format_column(cat_cov)
-
-
-
 
             # Note the binary cofounder may be a single value as dropna or data is a subset, so drop them
             # for col in cofounder:
@@ -793,7 +790,7 @@ def cal_corr_v2(
                 formula += f" + {cat_cov_str}"
 
             if model_type == "glm":
-                
+
                 default_fit_params = {"disp": False}
                 for k in default_fit_params:
                     if k not in fit_params:
@@ -818,10 +815,10 @@ def cal_corr_v2(
             #     metrics = cal_qt_metrics(Y, y_pred)
             elif model_type == "logistic":
 
-                # nacse 
+                # nacse
                 ncase = used_df[y].sum()
-                if ncase <=30:
-                    warnings.warn(f"n_case is {ncase} for y={y}, which is less than 30")
+                if ncase <= 5:
+                    warnings.warn(f"n_case is {ncase} for y={y}, which is less than 5")
 
                     return pd.Series(
                         {

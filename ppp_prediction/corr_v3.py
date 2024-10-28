@@ -649,8 +649,8 @@ def cal_corr_v3(
 
                 # nacse
                 ncase = formatted_df[formatted_var_dict["y"]].sum()
-                if ncase <= 30:
-                    warnings.warn(f"n_case is {ncase} for y={y}, which is less than 30")
+                if ncase <= 2:
+                    warnings.warn(f"n_case is {ncase} for y={y}, which is less than 5")
                     return pd.DataFrame(
                         {
                             "var": [x],
@@ -660,7 +660,7 @@ def cal_corr_v3(
                             "adjust_cov": [1 if adjust else 0],
                             "norm_x": [norm_x],
                             "n_case": [ncase],
-                            "error": ["n_caseError"],
+                            "error": [f"n_caseError {ncase}"],
                         }
                     )
                     # return

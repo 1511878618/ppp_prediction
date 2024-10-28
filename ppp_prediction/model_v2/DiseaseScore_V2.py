@@ -881,7 +881,7 @@ AgeSex      xgboost        NaN
             )
         else:
             raise ValueError("by should be test, train or all")
-
+        #TODO: update to new code of get_dca_df
         test = by_data[[self.label, *self.get_score_names()]].dropna().copy()
         event_rate = test[self.label].sum() / len(test)
         dca_df = dca(

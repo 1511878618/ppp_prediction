@@ -132,6 +132,10 @@ def delong_roc_test(ground_truth, predictions_one, predictions_two):
 
 
 def roc_test(y_true, y_ref, y_new, method="delong"):
+    """
+    Note: DeLong Test for AUC comparing is argued by this paper:https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3684152/
+    
+    """
     if method == "delong":
         order, label_1_count = compute_ground_truth_statistics(y_true)
         predictions_sorted_transposed = np.vstack((y_ref, y_new))[:, order]

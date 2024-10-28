@@ -8,7 +8,7 @@
 # from sklearn.linear_model import LogisticRegression
 
 
-
+import seaborn as sns 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 

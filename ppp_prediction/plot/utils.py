@@ -16,6 +16,36 @@ from plotnine import ggplot
 #         fig.savefig(f"{path}.tiff", dpi=400, bbox_inches=bbox_inches, **kwargs)
 #     # plt.close(fig)
 
+import matplotlib.pyplot as plt
+from contextlib import contextmanager
+
+
+@contextmanager
+def scale_font(scale_factor):
+    # 保存当前字体设置的副本
+    original_font_params = {
+        "font.size": plt.rcParams["font.size"],
+        "axes.titlesize": plt.rcParams["axes.titlesize"],
+        "axes.labelsize": plt.rcParams["axes.labelsize"],
+        "xtick.labelsize": plt.rcParams["xtick.labelsize"],
+        "ytick.labelsize": plt.rcParams["ytick.labelsize"],
+        "legend.fontsize": plt.rcParams["legend.fontsize"],
+    }
+
+    try:
+        # 调整字体大小
+        plt.rcParams["font.size"] = plt.rcParams["font.size"] * scale_factor
+        plt.rcParams["axes.titlesize"] = plt.rcParams["axes.titlesize"] * scale_factor
+        plt.rcParams["axes.labelsize"] = plt.rcParams["axes.labelsize"] * scale_factor
+        plt.rcParams["xtick.labelsize"] = plt.rcParams["xtick.labelsize"] * scale_factor
+        plt.rcParams["ytick.labelsize"] = plt.rcParams["ytick.labelsize"] * scale_factor
+        plt.rcParams["legend.fontsize"] = plt.rcParams["legend.fontsize"] * scale_factor
+
+        yield  # 在此暂停并执行with语句内的代码
+    finally:
+        # 恢复原始字体设置
+        plt.rcParams.update(original_font_params)
+
 
 def save_fig(
     fig=None,

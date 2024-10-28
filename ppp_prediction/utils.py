@@ -24,7 +24,6 @@ from functools import wraps
 from typing import List, Optional
 
 
-
 from ppp_prediction.cox import columnsFormatV1
 
 from functools import wraps
@@ -76,11 +75,13 @@ def dataframe_column_name_convert(
                     to_check_col = [to_check_col]
 
                 # make sure each params include the columns isin the data
-                for each_col in to_check_col:
-                    if each_col not in kwargs[data_params].columns:
-                        raise ValueError(
-                            f"No {to_check_col} found in the data to format with columns: {kwargs[data_params].columns}"
-                        )
+                if to_check_col is not None:
+                    for each_col in to_check_col:
+                        if each_col not in kwargs[data_params].columns:
+                            raise ValueError(
+                                f"No {to_check_col} found in the data to format with columns: {kwargs[data_params].columns}"
+                            )
+
             # updated at the same place with dfFormat
             for to_check_col in to_check_col_params:
                 extracted_value = kwargs[to_check_col]
@@ -91,6 +92,8 @@ def dataframe_column_name_convert(
                         dfFormat.get_format_column(each_value)
                         for each_value in extracted_value
                     ]
+                elif extracted_value is None:
+                    pass
                 else:
                     raise ValueError(
                         f"Unsupported type of {to_check_col} found in the arguments to format with kwargs: {kwargs.keys()}"
@@ -98,7 +101,6 @@ def dataframe_column_name_convert(
 
             # update the data with the formated data
             kwargs[data_params] = formated_df
-            print(formated_df.columns)
 
             result = func(*args, **kwargs)
 

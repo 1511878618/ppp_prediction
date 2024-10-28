@@ -306,7 +306,20 @@ def lasso_select_model(
     pd.concat([cutoff_model_test_metrics_df, pd.DataFrame(test_metrics, index=[0])], axis=0).to_csv(f"{current_save_path}/test_metrics.csv", index=False)
 
 
-def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verbose=1,save_dir=None,y_type="bt", engine = "cuml", param_grid=None):
+def fit_best_model(
+    train_df,
+    X_var,
+    y_var,
+    test_df=None,
+    method_list=None,
+    cv=10,
+    verbose=1,
+    test_size=0.2,
+    save_dir=None,
+    y_type="bt",
+    engine="cuml",
+    param_grid=None,
+):
     if engine == "sklearn":
         from sklearn.linear_model import LogisticRegression, Lasso, ElasticNet
     else:
@@ -349,6 +362,11 @@ def fit_best_model(train_df, test_df, X_var, y_var,method_list=None, cv=10, verb
     print(f"y_var: {y_var}, X_var: {X_var}")
 
     train_df = train_df[[y_var] + X_var].copy().dropna()
+    if test_df is None:
+        train_df, test_df = train_test_split(
+            train_df, test_size=test_size, random_state=42
+        )
+
     test_df = test_df[[y_var] + X_var].copy().dropna()
     if y_type == "bt":
         train_df[y_var] = train_df[y_var].astype(int)
@@ -972,7 +990,14 @@ def fit_best_model_bootstrap(
 
 
 def fit_ensemble_model_simple(
-    train_df, test_df, X_var, y_var, engine="cuml", method="Linear", need_scale=False
+    train_df,
+    X_var,
+    y_var,
+    test_df=None,
+    engine="cuml",
+    method="Linear",
+    need_scale=False,
+    test_size=0.2,
 ):
     if engine == "sklearn":
         from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -980,6 +1005,11 @@ def fit_ensemble_model_simple(
         from cuml import LogisticRegression, LinearRegression
 
     train_df = train_df[[y_var] + X_var].copy().dropna()
+    if test_df is None:
+        train_df, test_df = train_test_split(
+            train_df, test_size=test_size, random_state=42
+        )
+
     test_df = test_df[[y_var] + X_var].copy().dropna()
     train_df[y_var] = train_df[y_var].astype(int)
     test_df[y_var] = test_df[y_var].astype(int)

@@ -146,3 +146,115 @@ def NRI(
         }
         res.update(update_dict)
     return res 
+
+
+
+def NRI_v2(
+    y_true: Union[np.ndarray, pd.Series, list],
+    y_ref: Union[np.ndarray, pd.Series, list],
+    y_new: Union[np.ndarray, pd.Series, list],
+    time=None,
+    t0=None,  # Scalar value indicating a time to determine evnet/non-event.
+    thresholds_risk: Optional[float] = None,
+    auto_thresholds_risk=False,
+    ci: bool = True,
+    n_resamples: int = 100,
+    # only_nri: bool = True,
+) -> Union[
+    float,
+    Tuple[float, float],
+    Tuple[float, pd.DataFrame, pd.DataFrame],
+    Tuple[float, pd.DataFrame, pd.DataFrame, float],
+]:
+    import rpy2.robjects as robjects
+    from rpy2.robjects import pandas2ri
+
+    # define the R NULL object
+    r_null = robjects.r("NULL")
+
+    # 启用 R 和 pandas 数据转换功能
+    pandas2ri.activate()
+
+    # load local package
+    # TODO: install R package code
+    robjects.r(
+        """
+        options(warn = -1)
+              library(nricens)
+               """
+    )
+
+    run_nri = robjects.r(
+        """
+
+function(event, y_ref, y_new, niter, cut,time=NULL,t0=NULL){
+  if (!is.null(time)){
+    res = nricens(
+      event = event,
+      p.std = y_ref,
+      p.new = y_new,
+      niter = niter,
+      cut = cut,
+      time = time,
+      t0 = t0
+    )$nri
+    
+
+  }else{
+    res <- nribin(
+      event = event,
+      p.std = y_ref,
+      p.new = y_new,
+      niter = niter,
+      cut = cut
+    )$nri
+  }
+  return (res)
+  
+  }
+
+
+        """
+    )
+    # format the data
+    if time is not None:
+        if not t0:
+            t0 = max(time)
+
+    if auto_thresholds_risk:
+        from ppp_prediction.metrics.utils import find_best_cutoff, cal_pvalue
+
+        fpr, tpr, thresholds = roc_curve(y_true, y_ref)
+        optim_threshold, optim_fpr, optim_tpr = find_best_cutoff(fpr, tpr, thresholds)
+        y_ref_thresholds = optim_threshold
+        print(f"y_ref_thresholds is {y_ref_thresholds} by max Youden index")
+
+        fpr, tpr, thresholds = roc_curve(y_true, y_new)
+        optim_threshold, optim_fpr, optim_tpr = find_best_cutoff(fpr, tpr, thresholds)
+        y_new_thresholds = optim_threshold
+        print(f"y_new_thresholds is {y_new_thresholds} by max Youden index")
+
+        y_ref = (y_ref > y_ref_thresholds).astype(int)
+        y_new = (y_new > y_new_thresholds).astype(int)
+
+        thresholds_risk = [0.5]  # as all values are 0 or 1
+
+    res = run_nri(
+        event=y_true,
+        y_ref=y_ref,
+        y_new=y_new,
+        niter=n_resamples if ci else 0,
+        cut=robjects.FloatVector(thresholds_risk),
+        time=time if time is not None else r_null,
+        t0=t0 if t0 else r_null,
+    )
+
+    res = pandas2ri.rpy2py(res).reset_index(drop=False)
+
+    res.columns = ["Metric", "Estimate", "LCI", "UCI"]
+
+    if auto_thresholds_risk:
+        res["ref_cutoff"] = y_ref_thresholds
+        res["new_cutoff"] = y_new_thresholds
+
+    return res

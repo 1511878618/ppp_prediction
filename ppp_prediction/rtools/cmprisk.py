@@ -19,6 +19,7 @@ def cmprisk(
     outcome_order: List[str],
     covariates: Optional[List[str]] = None,
     cat_cols: Optional[List[str]] = None,
+    norm_x: Optional[str] = None,
     saveDir: Optional[str] = None,
 ):
     """
@@ -33,6 +34,7 @@ def cmprisk(
 
     :return: pandas DataFrame
     """
+
     # import rpy2
     import rpy2.robjects as robjects
     from rpy2.robjects import pandas2ri
@@ -52,12 +54,22 @@ def cmprisk(
     run_cmprisk = robjects.r["run_cmprisk"]
 
     need_cols = [exposure, outcome, time]
+    to_norm_col = [exposure]
     if covariates:
         need_cols += covariates
+        to_norm_col += covariates
     if cat_cols:
         need_cols += cat_cols
+        to_norm_col = [i for i in to_norm_col if i not in cat_cols]
     print(need_cols)
-    r_data = pandas2ri.py2rpy(data[need_cols])
+    data = data[need_cols].copy().dropna()
+    if norm_x:
+        if norm_x == "zscore":
+            data[to_norm_col] = (data[to_norm_col] - data[to_norm_col].mean()) / data[to_norm_col].std()
+        else:
+            raise ValueError(f"norm_x must be 'zscore' or None, but got {norm_x} which is not supported")
+
+    r_data = pandas2ri.py2rpy(data)
 
     ## run the function
     res_r_df = run_cmprisk(
@@ -86,10 +98,11 @@ def cmprisk_parallel(
     covariates: Optional[List[str]] = None,
     cat_cols: Optional[List[str]] = None,
     saveDir: Optional[str] = None,
+    norm_x: Optional[str] = None,
     threads: Optional[int] = None,
 ):
     return cmprisk(
-        data,
+        data = data,
         exposure=exposure,
         outcome=outcome,
         time=time,
@@ -97,4 +110,5 @@ def cmprisk_parallel(
         covariates=covariates,
         cat_cols=cat_cols,
         saveDir=saveDir,
+        norm_x=norm_x,
     )

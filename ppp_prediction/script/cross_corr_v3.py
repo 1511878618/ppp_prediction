@@ -191,7 +191,7 @@ def getParser():
         nargs="+",
 
     )
-    parser.add_argument("--test", dest="test", help="test mode for develop", required=False)
+    parser.add_argument("--test", dest="test", help="test mode for develop", required=False, action="store_true")
     parser.add_argument("-o", "--output", dest = "output", help = "outpu file name", required=True)
     parser.add_argument("-t", "--threads", dest="threads", help="processes of this ", default=5, type=int, required=False)
     parser.add_argument("--adjust", dest="adjust", help="regress_out_confounding", action="store_true", required=False)
@@ -298,28 +298,29 @@ def parse_input_data(
 
     msg = f"query_col have {len(query_cols)} cols and first 5 cols are {query_cols[:5]}\nkey_col have {len(key_cols)} cols and first 5 cols are {key_cols[:5]}\n" 
 
-    # filter cov
-    for col in query_cols:
-        try:
-            main_df[col] = main_df[col].astype(float)
-        except:
-            main_df.drop(col, axis=1, inplace=True)
-            query_cols.remove(col)
+    # # filter cov
+    # for col in query_cols:
+    #     try:
+    #         main_df[col] = main_df[col].astype(float)
+    #     except:
+    #         main_df.drop(col, axis=1, inplace=True)
+    #         print(f"query col {col} is not float, will drop it")
+    #         query_cols.remove(col)
 
-    for col in key_cols:
-        try:
-            main_df[col] = main_df[col].astype(float)
-        except:
-            main_df.drop(col, axis=1, inplace=True)
-            key_cols.remove(col)
-    if cond_cols:
-        for col in cond_cols:
-            try:
-                main_df[col] = main_df[col].astype(float)
-            except:
-                print
-                main_df.drop(col, axis=1, inplace=True)
-                cond_cols.remove(col)
+    # for col in key_cols:
+    #     try:
+    #         main_df[col] = main_df[col].astype(float)
+    #     except:
+    #         main_df.drop(col, axis=1, inplace=True)
+    #         key_cols.remove(col)
+    # if cond_cols:
+    #     for col in cond_cols:
+    #         try:
+    #             main_df[col] = main_df[col].astype(float)
+    #         except:
+    #             print
+    #             main_df.drop(col, axis=1, inplace=True)
+    #             cond_cols.remove(col)
 
     if len(cond_cols) > 0:
         cat_cond_cols = [col for col in cond_cols if col in cat_cond_cols]
@@ -382,30 +383,46 @@ if __name__ == "__main__":
         if date_col not in main_df.columns:
             raise ValueError("date_col not in main_df")
         if event_col not in main_df.columns:
+
             raise ValueError("event_col not in main_df")
 
         # run cox
         if comprisk_order is not None:
             # run comprisk
-            from ppp_prediction.cmprisk import cmprisk_parallel
-            if isinstance(col_dict["key_cols"], str):
-                col_dict["key_cols"] = [col_dict["key_cols"]]
-            
-            res = [
-                cmprisk_parallel(
-                data=main_df if not args.test else main_df.groupby(col).head(100),
+            from ppp_prediction.rtools.cmprisk import cmprisk_parallel
+            # if isinstance(col_dict["key_cols"], str):
+            #     col_dict["key_cols"] = [col_dict["key_cols"]]
+            results_df = cmprisk_parallel(
+                data=main_df if not args.test else main_df.groupby(event_col).head(100),
                 exposure=col_dict["query_cols"],
-                outcome=col,
+                outcome=event_col,
                 time=date_col,
                 outcome_order=comprisk_order,
                 covariates=col_dict["cond_cols"] + col_dict["cat_cond_cols"],
                 cat_cols=col_dict["cat_cond_cols"],
                 saveDir=None,
+                norm_x = norm_x,
+                threads=threads,
             ).assign(
-                key=col
-            ) for col in col_dict["key_cols"]
-            ]
-            results_df = pd.concat(res)
+                key=event_col
+            )
+
+      
+            # res = [
+            #     cmprisk_parallel(
+            #     data=main_df if not args.test else main_df.groupby(col).head(100),
+            #     exposure=col_dict["query_cols"],
+            #     outcome=col,
+            #     time=date_col,
+            #     outcome_order=comprisk_order,
+            #     covariates=col_dict["cond_cols"] + col_dict["cat_cond_cols"],
+            #     cat_cols=col_dict["cat_cond_cols"],
+            #     saveDir=None,
+            # ).assign(
+            #     key=col
+            # ) for col in col_dict["key_cols"]
+            # ]
+            # results_df = pd.concat(res)
 
         else:
             results_df = run_cox(

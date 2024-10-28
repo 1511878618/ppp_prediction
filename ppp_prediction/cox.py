@@ -40,7 +40,7 @@ class columnsFormatV1:
         self.data = data
         self.columns = data.columns
 
-        self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】 ><+-"
+        self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】 ><+-(),."
         self.columns_dict = {
             i: "a_" + re.sub(
                 f"[{re.escape(self.special_chars)}]",
@@ -78,7 +78,6 @@ class columnsFormatV1:
         return self.__str__()
 
 
-
 class columnsFormat:
     """
     format columns of df to remove space
@@ -92,9 +91,10 @@ class columnsFormat:
         self.data = data
         self.columns = data.columns
 
-        self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】 ><+-"
+        self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】 ><+-(),."
         self.columns_dict = {
-            i: re.sub(
+            i: "a_"
+            + re.sub(
                 f"[{re.escape(self.special_chars)}]",
                 "_",
                 i,
@@ -226,12 +226,12 @@ def run_cox(
         print(tmp_df.columns)
         n_case = (tmp_df[E] == 1).sum()
 
-        if n_case < 30:
+        if n_case < 5:
             res_df = pd.DataFrame()
             res_df["var"] = var
             cph = None
             res_df["exposure"] = E
-            res_df["annot"] = f"n_case={n_case} < 30"
+            res_df["annot"] = f"n_case={n_case} < 5"
         for c_cov in cov:
             tmp_df[c_cov] = tmp_df[c_cov].astype(float)
         for c_car_cov in cat_cov:

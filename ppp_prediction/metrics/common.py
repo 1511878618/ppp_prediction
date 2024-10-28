@@ -14,7 +14,8 @@ import statsmodels.api as sm
 from typing import Union, overload, Tuple, List
 from tqdm.rich import tqdm
 import numpy as np
-import confidenceinterval as ci
+# import confidenceinterval as ci
+import ppp_prediction.metrics.confidenceinterval as ci
 from statsmodels.stats.multitest import multipletests
 import numpy as np
 import statsmodels.stats.multitest as smm
