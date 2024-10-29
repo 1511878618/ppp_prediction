@@ -31,6 +31,8 @@ from ppp_prediction.model_v2.models import (
     get_predict_v2_from_df,
 )
 import time
+# from rich.
+from tqdm.rich import tqdm
 import warnings
 
 
@@ -501,59 +503,80 @@ def fit_best_model_bootstrap_v2(
 ):
     if test is None:
         train, test = train_test_split(train, test_size=test_size)
-
-    if n_jobs == 1:
-        random_stats = [i for i in np.random.randint(0, 100000, n_resample)]
-        res = []
-        for i in tqdm(random_stats):
-            train_df_sample = train.sample(frac=1, replace=True, random_state=i)
-            best_model, *_ = fit_best_model_v2(
-                train_df_sample,
-                xvar,
-                label,
-                None,
-                method_list,
-                cv,
-                verbose,
-                save_dir=f"{save_dir}/{i}.pkl" if save_dir else None,
-                engine=engine,
+    if Path(save_dir).exists():
+        find_models = list(Path(save_dir).rglob("*.pkl"))
+        res = [pd.read_pickle(i) for i in find_models]
+        if len(find_models) == n_resample:
+            logging.info(f"find {n_resample} models in {save_dir} and will load")
+        elif len(find_models) > 0 and len(find_models) < n_resample:
+            retrain_n = n_resample - len(find_models)
+            logging.warning(
+                f"find {len(find_models)} models in {save_dir}, {len(res)} less than {n_resample}, will retrain {retrain_n} models"
             )
-            res.append(best_model)
-
+            n_resample = retrain_n
     else:
-        from joblib import Parallel, delayed
+        res = []  
+        n_resample = n_resample
 
-        print(f"n_jobs: {n_jobs}")
-        # random_stats = [i for i in np.random.randint(0, 100000, n_resample)]
-        random_stats = list(range(n_resample))
+    if n_resample > 0:
+        res_trained = [] 
+        if n_jobs == 1:
+            random_stats = [i for i in np.random.randint(0, 100000, n_resample)]
+            for i in tqdm(random_stats):
+                train_df_sample = train.sample(frac=1, replace=True, random_state=i)
+                best_model, *_ = fit_best_model_v2(
+                    train_df_sample,
+                    xvar,
+                    label,
+                    None,
+                    method_list,
+                    cv,
+                    verbose,
+                    save_dir=f"{save_dir}/{i}.pkl" if save_dir else None,
+                    engine=engine,
+                )
+                res_trained.append(best_model)
 
-        def fit_best_model_modified(*args):
-            try:
-                best_model, *_ = fit_best_model_v2(*args)
-                return best_model
-            except:
-                return None
+        else:
+            from joblib import Parallel, delayed
 
-        res = Parallel(n_jobs=n_jobs)(
-            delayed(fit_best_model_modified)(
-                train.sample(frac=1, replace=True, random_state=i),
-                xvar,
-                label,
-                None,
-                method_list,
-                cv,
-                verbose,
-                f"{save_dir}/{i}.pkl" if save_dir else None,
-                engine,
+            print(f"n_jobs: {n_jobs}")
+            # random_stats = [i for i in np.random.randint(0, 100000, n_resample)]
+            random_stats = list(range(n_resample))
+
+            def fit_best_model_modified(*args):
+                try:
+                    best_model, *_ = fit_best_model_v2(*args)
+                    return best_model
+                except:
+                    return None
+
+            res_trained = Parallel(n_jobs=n_jobs)(
+                delayed(fit_best_model_modified)(
+                    train.sample(frac=1, replace=True, random_state=i),
+                    xvar,
+                    label,
+                    None,
+                    method_list,
+                    cv,
+                    verbose,
+                    f"{save_dir}/{i}.pkl" if save_dir else None,
+                    engine,
+                )
+                for i in tqdm(random_stats)
             )
-            for i in tqdm(random_stats)
-        )
-    res = [i for i in res if i is not None]
-    total_success = len(res)
-    if total_success == 0:
-        raise ValueError("No model is fitted successfully")
-    else:
-        print(f"total success: {total_success} with {n_resample} resamples")
+
+        total_success = [i for i in res_trained if i is not None]
+
+        if total_success == 0:
+            raise ValueError("No model is fitted successfully")
+        else:
+            print(f"total success: {len(total_success)} with {n_resample} resamples")
+
+        # add success model to res
+        res_trained = [i for i in res_trained if i is not None]
+        res.extend(res_trained)
+
     model = EnsembleModel(res, coef_name=xvar, model_name_list=None)
 
     train[f"{label}_pred"] = model.predict(train[xvar])
@@ -586,7 +609,7 @@ def BootstrapLassoSelectModelAndFit(
     cutoff_list=None,
     threads=1,
     save_dir="./BootstrapLassoSelectModelAndFit",
-    bootstrap_engine="sklearn",
+    bootstrap_engine="cuml",
     bootstrap_n_resample=100,
 ):
     """
@@ -621,7 +644,7 @@ def BootstrapLassoSelectModelAndFit(
 
     # Define method_fn
     supported_methods = {
-        "Lasso": partial(fit_best_model_v2, method_list=["Lasso"], engine="sklearn"),
+        "Lasso": partial(fit_best_model_v2, method_list=["Lasso"], engine="cuml",cv =3),
         # "Ridge": partial(fit_best_model_v2, method_list=["Ridge"], engine="sklearn"),
         # "ElasticNet": partial(
         #     fit_best_model_v2, method_list=["ElasticNet"], engine="sklearn"
@@ -660,27 +683,42 @@ def BootstrapLassoSelectModelAndFit(
     fig_save_dir = Path(save_dir) / "figs"
     fig_save_dir.mkdir(parents=True, exist_ok=True)
     # step1 fit best model
-    bootsrap_model, *_ = fit_best_model_bootstrap_v2(
-        train,
-        xvar,
-        label,
-        n_resample=bootstrap_n_resample,
-        n_jobs=threads,
-        engine=bootstrap_engine,
-        save_dir=bootstrap_save_dir,
-    )
+    bootstrap_model_dir = save_dir / "bootstrap_model.pkl"
+    if bootstrap_model_dir.exists():
+        bootsrap_model = pickle.load(open(bootstrap_model_dir, "rb"))
+    else:
+        bootstrap_time_start = time.time()
 
-    ## save bootstrap figs
+        bootsrap_model, *_ = fit_best_model_bootstrap_v2(
+            train,
+            xvar,
+            label,
+            n_resample=bootstrap_n_resample,
+            n_jobs=threads,
+            engine=bootstrap_engine,
+            save_dir=bootstrap_save_dir,
+        )
+        bootstrap_time_end = time.time()
+        bootstrap_time = bootstrap_time_end - bootstrap_time_start
+        logging.info(f"bootstrap model is fitted in {bootstrap_time} seconds")
+        
+        ## save bootstrap model 
+        pickle.dump(bootsrap_model, open(bootstrap_model_dir, "wb"))
 
     ## plot
     try:
         bootsrap_model._plot._plot_top_k_features()
         plt.savefig(f"{fig_save_dir}/top_k_features.png", dpi=400)
         plt.clf()
+    except Exception as e:
+        logging.warning(f"plot top k features failed: {e}")
+        pass 
+    try:
         bootsrap_model._show_models_coeffients()
         plt.savefig(f"{fig_save_dir}/coeffients.png", dpi=400)
         plt.clf()
-    except:
+    except Exception as e:
+        logging.warning(f"plot coeffients failed: {e}")
         pass
     try:
         import seaborn as sns
@@ -692,7 +730,8 @@ def BootstrapLassoSelectModelAndFit(
         )
         plt.savefig(f"{fig_save_dir}/percent_of_nonZero_coefficients.png", dpi=400)
         plt.clf()
-    except:
+    except Exception as e:
+        logging.warning(f"plot percent_of_nonZero_coefficients failed: {e}")
         pass
 
     # step2 fit model for each cut off
@@ -701,49 +740,65 @@ def BootstrapLassoSelectModelAndFit(
     ]  # 9个区间：>10, >20, >30, >40, >50, >60, >70, >80, >90
 
     method_trained_dict = {("bootstrap", "ALL"): bootsrap_model}
-    time_dict = {}
+    try:
+        time_dict = {("bootstrap", "ALL"):bootstrap_time}
+    except:  # noqa: E722
+        time_dict = {("bootstrap", "ALL"):np.nan}
     for cutoff in cutoff_bins:
         if cutoff == "ALL":
             cutoff_features = bootsrap_model.weights_dist_df.index.tolist()
         else:
             cutoff_features = bootsrap_model.weights_dist_df[
                 bootsrap_model.weights_dist_df["percent_of_nonZero_coefficients"]
-                > cutoff
+                >= cutoff
             ].index.tolist()
+        if len(cutoff_features) == 0:
+            logging.warning(f"no feature is selected with cutoff {cutoff}")
+            continue
 
         for method_name, method_fn in methods_dict.items():
             c_cutoff_method_save_dir = Path(save_dir) / f"{method_name}/{cutoff}"
             c_cutoff_method_save_dir.mkdir(parents=True, exist_ok=True)
+            c_cutoff_method_model_dir = c_cutoff_method_save_dir / f"{method_name}.pkl"
+            if not c_cutoff_method_model_dir.exists():
+                logging.info(f"fitting {method_name} with cutoff {cutoff}")
+                method_fn_time_start = time.time()
+                return_obj = method_fn(
+                    train,
+                    cutoff_features,
+                    label,
+                    test=None,
+                )
+                model, *_ = return_obj
 
-            print(f"fitting {method_name} with cutoff {cutoff}")
-            method_fn_time_start = time.time()
-            return_obj = method_fn(
-                train,
-                cutoff_features,
-                label,
-                test=None,
-            )
-            model, *_ = return_obj
-
-            method_fn_time_end = time.time()
-            method_fn_time = method_fn_time_end - method_fn_time_start
-            print(
-                f"{method_name} with cutoff {cutoff} is fitted in {method_fn_time} seconds"
-            )
-            method_trained_dict[(method_name, cutoff)] = model
-            time_dict[(method_name, cutoff)] = method_fn_time
-            pickle.dump(
-                model, open(c_cutoff_method_save_dir / f"{method_name}.pkl", "wb")
-            )
+                method_fn_time_end = time.time()
+                method_fn_time = method_fn_time_end - method_fn_time_start
+                logging.info(
+                    f"{method_name} with cutoff {cutoff} is fitted in {method_fn_time} seconds"
+                )
+                method_trained_dict[(method_name, cutoff)] = model
+                time_dict[(method_name, cutoff)] = method_fn_time
+                pickle.dump(
+                    model, open(c_cutoff_method_model_dir, "wb")
+                )
+            else:
+                logging.info(f"load {c_cutoff_method_model_dir}")
+                model = pickle.load(open(c_cutoff_method_model_dir, "rb"))
+                method_trained_dict[(method_name, cutoff)] = model
+                time_dict[(method_name, cutoff)] = np.nan
 
     # step3 compare
 
     compare_list = []
-
-    for (model_name, cutoff), model in method_trained_dict.items():
+    logging.info("start to cal compare metrics")
+    for (model_name, cutoff), model in tqdm(method_trained_dict.items(), total=len(method_trained_dict), desc="Runing"):
         col_name = "_".join([model_name, str(cutoff)])
-        cutoff_xvar = model.feature_names_in_
-
+        if hasattr(model, "feature_names_in_"):
+            cutoff_xvar = model.feature_names_in_
+        elif hasattr(model, "feature_name"):
+            # this is lgb booster may have; 
+            # TODO: 统一接口
+            cutoff_xvar = model.feature_name()
         # TODO: check if cutoff_xvar is np.ndarray ,and turn into list
         if not isinstance(cutoff_xvar, list):
             cutoff_xvar = cutoff_xvar.tolist()
@@ -756,7 +811,7 @@ def BootstrapLassoSelectModelAndFit(
         test_metrics = cal_binary_metrics(
             to_cal_test[label],
             to_cal_test[col_name],
-            ci=False,
+            ci=True,
         )
         test_metrics["model_name"] = model_name
         test_metrics["cutoff"] = cutoff

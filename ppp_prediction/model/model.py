@@ -337,7 +337,7 @@ def fit_best_model(
             },
         },
         "Lasso": {
-            "model": Lasso(),
+            "model": Lasso(max_iter=100),
             "param_grid": {
                 "alpha": np.logspace(-6, 2, 10),
             },
@@ -405,7 +405,10 @@ def fit_best_model(
             if model_name == "Logistic":
                 scorer = make_scorer(roc_auc_score, needs_proba=True)
             else:
-                scorer = make_scorer(r2_score)
+                if y_type == "bt":
+                    scorer = make_scorer(roc_auc_score)
+                else:
+                    scorer = make_scorer(r2_score)
             rf = Pipeline(
                 [
                     ("scaler", StandardScaler()),
@@ -497,6 +500,13 @@ def fit_best_model(
         if save_dir:
             Path(save_dir).parent.mkdir(parents=True, exist_ok=True)
             pickle.dump(best_model, open(f"{save_dir}", "wb"))
+            metrics_df = pd.concat(
+                [
+                    pd.DataFrame(each[2].cv_results_).assign(ModelName=each[0])
+                    for each in best_models
+                ]
+            )
+            metrics_df.to_csv(f"{save_dir}_cv_results.csv", index=False)
     except:
         pass 
     return best_model, train_metrics, test_metrics, train_df, test_df, best_models
