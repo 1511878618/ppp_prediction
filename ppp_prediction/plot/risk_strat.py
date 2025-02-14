@@ -1,13 +1,51 @@
 # from ppp_prediction.viz import calibration_dot_plot
-import statsmodels.api as sm
+
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from pathlib import Path
+
 
 from scipy.stats import bootstrap
+from ppp_prediction.rtools import tftoolsDir
+
+
+def plot_risk_additive(
+    data, REF, NEW, time, outcome, save_dir, covariates=None, cat_cols=None
+):
+
+    # import rpy2
+    import rpy2.robjects as robjects
+    from rpy2.robjects import pandas2ri
+
+    # define the R NULL object
+    r_null = robjects.r("NULL")
+
+    # 启用 R 和 pandas 数据转换功能
+    pandas2ri.activate()
+
+    # load local package
+    r_local_package_dir = tftoolsDir
+    robjects.r("library(devtools)")
+    robjects.r(f'devtools::load_all("{r_local_package_dir}")')
+
+    risk_additive_plot = robjects.r["risk_additive_plot"]
+    if save_dir is not None:
+        Path(save_dir).parent.mkdir(parents=True, exist_ok=True)
+
+    risk_additive_plot(
+        data=data,
+        REF=REF,
+        NEW=NEW,
+        time=time,
+        outcome=outcome,
+        covariates=covariates,
+        cat_cols=cat_cols,
+        save_dir=save_dir,
+    )
 
 
 def calibration_curve_df(data=None, y_true=None, y_pred=None, k=10, n_resample=1000):

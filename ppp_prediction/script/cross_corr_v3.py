@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as ss
 from ppp_prediction.corr_v3 import cal_corr_v3
-from ppp_prediction.cox import run_cox
+from ppp_prediction.cox import run_cox_v2
 from ppp_prediction.utils import load_data
 
 warnings.filterwarnings("ignore")
@@ -378,7 +378,6 @@ if __name__ == "__main__":
     )
     # print(main_df)
 
-
     if date_col is not None and event_col is not None and method in ["cox", "auto"]:
         if date_col not in main_df.columns:
             raise ValueError("date_col not in main_df")
@@ -407,7 +406,6 @@ if __name__ == "__main__":
                 key=event_col
             )
 
-      
             # res = [
             #     cmprisk_parallel(
             #     data=main_df if not args.test else main_df.groupby(col).head(100),
@@ -425,17 +423,17 @@ if __name__ == "__main__":
             # results_df = pd.concat(res)
 
         else:
-            results_df = run_cox(
-            df=main_df,
-            var=col_dict["query_cols"],
-            E=event_col,
-            T=date_col,
-            cov=col_dict["cond_cols"],
-            cat_cov=col_dict["cat_cond_cols"],
-            threads=threads,
-            norm_x=norm_x,
-            ci=False,
-        )
+            results_df = run_cox_v2(
+                df=main_df,
+                var=col_dict["query_cols"],
+                E=event_col,
+                T=date_col,
+                cov=col_dict["cond_cols"] + col_dict["cat_cond_cols"],
+                cat_cols=col_dict["cat_cond_cols"],
+                threads=threads,
+                norm_x=norm_x,
+                ci=False,
+            )
     else:
         # run corr
         results_df = cal_corr_v3(

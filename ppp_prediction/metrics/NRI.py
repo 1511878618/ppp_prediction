@@ -181,6 +181,8 @@ def NRI_v2(
         """
         options(warn = -1)
               library(nricens)
+              graphics.off()
+
                """
     )
 

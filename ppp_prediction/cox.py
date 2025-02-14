@@ -42,7 +42,7 @@ class columnsFormatV1:
 
         self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】 ><+-(),."
         self.columns_dict = {
-            i: "a_" + re.sub(
+            i: re.sub(
                 f"[{re.escape(self.special_chars)}]",
                 "_",
                 i,
@@ -93,8 +93,7 @@ class columnsFormat:
 
         self.special_chars = "≥≤·！@#￥%……&*（）—+，。？、；：“”‘’《》{}【】 ><+-(),."
         self.columns_dict = {
-            i: "a_"
-            + re.sub(
+            i: re.sub(
                 f"[{re.escape(self.special_chars)}]",
                 "_",
                 i,
@@ -130,6 +129,305 @@ class columnsFormat:
         return self.__str__()
 
 
+def run_cox_v2(
+    df: DataFrame,
+    var: Union[str, List],  # var should be all
+    E: str,
+    T: str,
+    cov: Union[str, List, None] = None,  # cov should be all
+    cat_cols: Union[str, List, None] = None,  # part of cov
+    threads=4,
+    return_all=False,
+    norm_x=None,
+    ci=False,
+    n_resamples=100,
+):
+    if cov is None:
+        cov = []
+    if isinstance(cov, str):
+        cov = [cov]
+
+    if cov is None:
+        cov = []
+    elif isinstance(cov, str):
+        cov = [cov]
+    if cat_cols is None:
+        cat_cols = []
+    elif isinstance(cat_cols, str):
+        cat_cols = [cat_cols]
+
+    # print(f"Running Cox for {var} with {'\t'.join(cov)} and {'\t'.join(cat_cov)}")
+    if isinstance(var, list) and len(var) > 1:
+        if threads is not None and threads > 1:
+            import multiprocessing
+
+            from joblib import Parallel, delayed
+
+            num_cores = multiprocessing.cpu_count()
+            threads = min(num_cores, threads, len(var))
+            print(f"Using {threads} threads")
+            res = Parallel(n_jobs=threads)(
+                delayed(run_cox_v2)(
+                    df,
+                    var=i,
+                    E=E,
+                    T=T,
+                    cov=cov,
+                    norm_x=norm_x,
+                    cat_cols=cat_cols,
+                )
+                for i in var
+            )
+
+        else:
+            res = [
+                run_cox_v2(
+                    df,
+                    var=i,
+                    E=E,
+                    T=T,
+                    cov=cov,
+                    norm_x=norm_x,
+                    cat_cols=cat_cols,
+                )
+                for i in var
+            ]
+
+        if return_all:
+            res_df, cph_list = zip(*res)
+            res_df = pd.concat(res_df)
+            return res_df, cph_list
+        else:
+            res_df = pd.concat(res)
+            return res_df
+
+    elif isinstance(var, str) or (isinstance(var, list) and len(var) == 1):
+        if isinstance(var, str):
+            var = [var]
+
+        print_str = ""
+        if var[0] in cat_cols:
+            print_str += "  var is categorical"
+            cat_var_status = True
+        else:
+            cat_var_status = False
+
+        print(print_str)
+
+        tmp_df = df[var + [E, T] + cov].dropna().copy().reset_index(drop=True)
+        print(tmp_df.columns)
+        n_case = (tmp_df[E] == 1).sum()
+
+        if n_case < 5:
+            res_df = pd.DataFrame()
+            res_df["var"] = var
+            cph = None
+            res_df["exposure"] = E
+            res_df["annot"] = f"n_case={n_case} < 5"
+        qt_cols = list(set(var + cov).difference(set(cat_cols)))
+        cat_cols = list(set(var + cov).intersection(set(cat_cols)))
+
+        for qt_col in qt_cols:
+            tmp_df[qt_col] = tmp_df[qt_col].astype(float)
+        for cat_col in cat_cols:
+            tmp_df[cat_col] = tmp_df[cat_col].astype(object)
+
+        if norm_x is not None:
+            to_norm = qt_cols
+
+            if len(to_norm) > 0:
+                print(f"normalizing {to_norm} by {norm_x}")
+                if norm_x == "zscore":
+                    tmp_df[to_norm] = (
+                        tmp_df[to_norm] - tmp_df[to_norm].mean()
+                    ) / tmp_df[to_norm].std()
+
+                elif norm_x == "int":
+                    print(
+                        f"normalizing x={var[0]} by rank inverse normal transformation"
+                    )
+                    tmp_df[to_norm] = rank_INT(tmp_df[to_norm])
+
+                else:
+                    raise ValueError("norm_x should be zscore but", norm_x)
+
+            else:
+                print(f"no quantitative var to norm")
+
+        dfFormat = columnsFormat(df)  # to avoid space or special in column name
+        tmp_df = dfFormat.format(tmp_df)
+
+        var = dfFormat.get_format_column(var)
+        E = dfFormat.get_format_column(E)
+        T = dfFormat.get_format_column(T)
+        cov = dfFormat.get_format_column(cov)
+        cat_cov = dfFormat.get_format_column(cat_cols)
+        non_cat_cov = dfFormat.get_format_column([i for i in cov if i not in qt_cols])
+
+        if cat_var_status:
+            var_str = f"C({var[0]})"
+        else:
+            var_str = var[0]
+        formula = " + ".join([var_str] + cov)
+
+        # if len(cat_cov) > 0:
+        #     formula += " + " + " + ".join([f"C({i})" for i in cat_cov])
+        print(formula)
+
+        # see https://lifelines.readthedocs.io/en/latest/Examples.html#problems-with-convergence-in-the-cox-proportional-hazard-model
+        # Most way to solve this is by lower the step_size.
+        fit_params_list = [
+            *[
+                {
+                    "fit_options": dict(
+                        step_size=step_size,
+                    )
+                }
+                for step_size in [0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.3]
+            ]
+        ]
+
+        for fit_params in fit_params_list:
+            status = 0
+            # try:
+            cph = CoxPHFitter()
+            try:
+                cph.fit(
+                    tmp_df,
+                    duration_col=T,
+                    event_col=E,
+                    formula=formula,
+                    show_progress=False,
+                    **fit_params,
+                )
+                staus = 1
+
+                break
+            except Exception as e:
+                print(f"error for {fit_params} and {e}")
+                continue
+
+        try:
+            summary_df = cph.summary
+
+            summary_df["c_index"] = cph.concordance_index_
+
+            # cal CI of c-index
+            event_array = tmp_df[E].values
+            time_array = tmp_df[T].values
+            partial_hazard = cph.predict_partial_hazard(tmp_df)
+            if n_resamples is not None and ci:
+                if n_resamples > 0:
+                    c_index, (c_index_LCI, c_index_UCI) = bootstrap_ci(
+                        metric=lambda event_array, time_array, partial_hazard: concordance_index(
+                            time_array, -partial_hazard, event_array
+                        ),
+                        event_array=event_array,
+                        time_array=time_array,
+                        partial_hazard=partial_hazard,
+                        n_resamples=n_resamples,
+                        method="bootstrap_basic",
+                        random_state=None,
+                    )
+                    summary_df["c_index_LCI"] = c_index_LCI
+                    summary_df["c_index_UCI"] = c_index_UCI
+                    summary_df["c_index (95% CI)"] = (
+                        f"{c_index:.2f} ({c_index_LCI:.2f}-{c_index_UCI:.2f}"
+                    )
+
+            # AIC
+            summary_df["AIC"] = cph.AIC_partial_
+
+            # extract
+            if not cat_var_status:
+                var_to_select = summary_df.index[
+                    summary_df.index.str.fullmatch(var[0])
+                ].tolist()
+            else:
+                var_to_select = summary_df.index[
+                    summary_df.index.str.contains(var[0])
+                ].tolist()
+
+            res_df = (
+                summary_df.loc[var_to_select]
+                .reset_index(drop=False)
+                .rename(
+                    columns={
+                        "exp(coef) lower 95%": "HR_LCI",
+                        "exp(coef)": "HR",
+                        "exp(coef) upper 95%": "HR_UCI",
+                    }
+                )
+            )
+
+            res_df["HR (95% CI)"] = res_df.apply(
+                lambda x: f"{x['HR']:.2f} ({x['HR_LCI']:.2f}-{x['HR_UCI']:.2f})", axis=1
+            )
+
+            res_df.insert(1, "HR (95% CI)", res_df.pop("HR (95% CI)"))
+            res_df.insert(2, "pvalue", res_df.pop("p"))
+
+            res_df = res_df.rename(columns={"covariate": "var"})
+
+            # reverse name
+            res_df["var"] = res_df["var"].apply(
+                lambda x: x.replace(
+                    get_cat_var_name(x),
+                    dfFormat.get_reverse_column(get_cat_var_name(x)),
+                )
+            )
+            # set ncase and ncontrol
+            if not cat_var_status:
+                res_df["n_control"] = (tmp_df[E] == 0).sum()
+                res_df["n_case"] = (tmp_df[E] == 1).sum()
+            else:
+
+                res_df["var"] = res_df["var"].apply(lambda x: get_cat_var_subname(x))
+
+                # add ref into var
+                # insert into first row
+                # get ref var
+                # used_ref_var = [i for i in tmp_df[var[0]].unique().tolist() if i not in res_df["var"].tolist()][0]
+                # ref_var_row = pd.DataFrame({
+                #     "var": [used_ref_var],
+                #     "HR": [1],
+                #     "HR_LCI": [1],
+                #     "HR_UCI": [1],
+
+                # })
+
+                # set var cols to str to get n_case and n_control
+                to_check_df = tmp_df[[E, var[0]]]
+                to_check_df[var[0]] = to_check_df[var[0]].astype(str)
+
+                res_df["n_case"] = res_df["var"].apply(
+                    lambda x: tmp_df[
+                        (tmp_df[E] == 1) & (to_check_df[var[0]] == x)
+                    ].shape[0]
+                )
+                res_df["n_control"] = res_df["var"].apply(
+                    lambda x: tmp_df[
+                        (tmp_df[E] == 0) & (to_check_df[var[0]] == x)
+                    ].shape[0]
+                )
+            res_df["n_case"] = res_df["n_case"].astype(int)
+            res_df["n_control"] = res_df["n_control"].astype(int)
+
+            res_df["exposure"] = dfFormat.get_reverse_column(E)
+            res_df["fit_params"] = fit_params  # record fit_params
+
+        except AttributeError:
+            print(f"error for {var} and {cov} and {cat_cov}")
+            res_df = pd.DataFrame()
+            res_df["var"] = dfFormat.get_reverse_column(var)
+            cph = None
+            res_df["exposure"] = E
+        if return_all:
+            return res_df, cph
+        else:
+            return res_df
+    else:
+        raise ValueError("var should be str or list of str but", var)
 def run_cox(
     df: DataFrame,
     var: Union[str, List],  # var should be all
@@ -233,7 +531,7 @@ def run_cox(
             res_df["exposure"] = E
             res_df["annot"] = f"n_case={n_case} < 5"
         for c_cov in cov:
-            tmp_df[c_cov] = tmp_df[c_cov].astype(float)
+            tmp_df[c_cov] = tmp_df[c_cov].astype(object)
         for c_car_cov in cat_cov:
             tmp_df[c_car_cov] = tmp_df[c_car_cov].astype(str)
         if norm_x is not None:

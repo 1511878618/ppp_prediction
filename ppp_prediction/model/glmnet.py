@@ -130,7 +130,6 @@ class glmnet_linear:
         self.coef = coef
         self.intercept = intercept if intercept is not None else 0
         self.feature_names = feature_names
-        self.feature_names_in_ 
         self.mean = mean
         self.std = std
 
