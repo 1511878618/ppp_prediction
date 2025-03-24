@@ -215,7 +215,7 @@ def run_cox_v2(
         print(print_str)
 
         tmp_df = df[var + [E, T] + cov].dropna().copy().reset_index(drop=True)
-        print(tmp_df.columns)
+        # print(tmp_df.columns)
         n_case = (tmp_df[E] == 1).sum()
 
         if n_case < 5:

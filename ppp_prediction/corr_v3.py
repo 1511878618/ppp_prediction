@@ -544,15 +544,20 @@ def cal_corr_v3(
             # if norm_x is not None and norm data
             if norm_x is not None:
                 to_norm = [i for i in [x] + cov if i not in cat_cols]
+                for col in to_norm:
+                    if raw_df[col].dtype in ["object", "category"]:
+                        to_norm.remove(col)
                 if len(to_norm) >0:
                     if norm_x == "zscore":
-                        print(f"normalizing x={x} by zscore")
+                        print(f"normalizing col: {' '.join(to_norm)} by zscore")
                         raw_df[to_norm] = (
                             raw_df[to_norm] - raw_df[to_norm].mean()
                         ) / raw_df[to_norm].std()
 
                     elif norm_x == "int":
-                        print(f"normalizing x={x} by rank inverse normal transformation")
+                        print(
+                            f"normalizing col: {' '.join(to_norm)} by rank inverse normal transformation"
+                        )
                         raw_df[to_norm] = rank_INT(raw_df[to_norm])
 
                     else:
@@ -664,42 +669,59 @@ def cal_corr_v3(
                         }
                     )
                     # return
+                status = 0
                 # fit_params.update({"maxiter": 100})
                 # Reason: some params may not found solve, so try many
-                fit_params_list = [
-                    *[
-                        dict(
-                            method="l1",
-                            alpha=alpha,
-                        )
-                        for alpha in [0, 0.05, 0.1, 0.2, 0.3]
-                    ],
-                    *[
-                        dict(
-                            method="l1",
-                            alpha=alpha,
-                            disp=0,
-                            trim_mode="size",
-                            qc_verbose=0,
-                        )
-                        for alpha in [0.1, 0.2]
-                    ],
-                ]
-                status = 0
-                for fit_params in fit_params_list:
+                # fit_params_list = [
+                #     *[
+                #         dict(
+                #             method="l1",
+                #             alpha=alpha,
+                #         )
+                #         for alpha in [0, 0.05, 0.1, 0.2, 0.3]
+                #     ],
+                #     *[
+                #         dict(
+                #             method="l1",
+                #             alpha=alpha,
+                #             disp=0,
+                #             trim_mode="size",
+                #             qc_verbose=0,
+                #         )
+                #         for alpha in [0.1, 0.2]
+                #     ],
+                # ]
+
+                # for fit_params in fit_params_list:
+                #     try:
+                #         model = smf.logit(
+                #             formula,
+                #             data=formatted_df,
+                #         ).fit_regularized(**fit_params)
+                #         # pvalue = model.pvalues[X_str]
+                #         # if np.isnan(pvalue):
+                #         #     continue
+                #         status = 1
+                #         break
+                #     except Exception as e:
+                #         print(f"error for {fit_params} with {str(e)}")
+                #         continue
+                fit_params = dict(
+                    maxiter=100,
+                    disp=False,
+                )
+                if status == 0:
                     try:
                         model = smf.logit(
                             formula,
                             data=formatted_df,
-                        ).fit_regularized(**fit_params)
-                        # pvalue = model.pvalues[X_str]
-                        # if np.isnan(pvalue):
-                        #     continue
+                        ).fit(**fit_params)
                         status = 1
-                        break
                     except Exception as e:
                         print(f"error for {fit_params} with {str(e)}")
-                        continue
+                        # continue
+                        raise e
+
                 if status == 0:
                     return pd.DataFrame(
                         {
@@ -713,7 +735,6 @@ def cal_corr_v3(
                             "error": ["fit error"],
                         }
                     )
-
 
                 y_pred = model.predict(X)
                 metrics = cal_binary_metrics(Y, y_pred)
@@ -772,6 +793,8 @@ def cal_corr_v3(
 
             else:
                 res_df["N"] = raw_df.shape[0]
+                res_df["n_case"] = raw_df[raw_var_dict["y"]].sum()
+                res_df["n_control"] = raw_df.shape[0] - raw_df[raw_var_dict["y"]].sum()
 
             for k, v in metrics.items():
                 res_df[k] = v

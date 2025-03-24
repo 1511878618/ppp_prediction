@@ -59,7 +59,8 @@ def save_fig(
     if path is None:
         path = "temp"
     if fig is None or isinstance(fig, plt.Figure):
-        fig = plt.gcf()
+        if fig is None:
+            fig = plt.gcf()
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
         fig.savefig(f"{path}.png", dpi=dpi, bbox_inches=bbox_inches, **kwargs)

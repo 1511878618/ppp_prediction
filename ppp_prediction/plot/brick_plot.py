@@ -39,6 +39,51 @@ def brick_plot(
     annotate_kwargs=None,
     **kwargs,
 ):
+    """
+        Parameters:
+        -----------
+        data : pandas.DataFrame
+            The input data for plotting.
+        direction : str
+            The column name in `data` representing the direction values.
+        x : str
+            The column name in `data` representing the categorical variable.
+        hue : str, optional
+            The column name in `data` representing the hue variable. Default is None.
+        hue_order : list, optional
+            The order of hue categories. Default is None.
+        order : list, optional
+            The order of categories in `x`. Default is None.
+        cmap : str, list, or dict, optional
+            The colormap to use for the plot. Default is "Set3".
+        center : int or float, optional
+            The center value for the direction variable. Default is 0.
+        ax : matplotlib.axes.Axes, optional
+            The axes on which to plot. Default is None.
+        annotate_kwargs : dict, optional
+            Additional keyword arguments for annotations. Default is None.
+        **kwargs : additional keyword arguments
+            Additional arguments to pass to the bar plot.
+        Returns:
+        --------
+        ax : matplotlib.axes.Axes
+            The axes with the brick plot.
+        --------
+        Example:
+        import numpy as np
+        from ppp_prediction.plot.brick_plot import brick_plot
+    
+        demo_data = pd.DataFrame(
+            {
+                "var": np.random.choice([f"A_{i}" for i in range(10)], 100),
+                "direction": np.random.choice([1, 0, -1], 100),
+            }
+        )
+
+        brick_plot(demo_data, direction="direction", x="var", hue="var")
+
+    """
+
     data = data.copy()
     if ax is None:
         fig, ax = plt.subplots()

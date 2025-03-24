@@ -40,6 +40,24 @@ import numpy as np
 
 
 def cal_binary_metrics(y, y_pred, ci=False, n_resamples=100):
+    """Calculate common binary classification metrics.
+
+    Args:
+        y (array-like): True binary labels
+        y_pred (array-like): Predicted probabilities or scores
+        ci (bool, optional): Whether to calculate confidence intervals. Defaults to False.
+        n_resamples (int, optional): Number of bootstrap resamples for CI. Defaults to 100.
+
+    Returns:
+        dict: Dictionary containing the following metrics:
+            - AUC: Area under ROC curve
+            - ACC: Accuracy score
+            - Macro_F1: Macro-averaged F1 score
+            - Sensitivity: True positive rate at optimal threshold
+            - Specificity: True negative rate at optimal threshold
+            - APR: Area under precision-recall curve
+            If ci=True, returns bootstrap confidence intervals for these metrics.
+    """
 
     if not ci:
         fpr, tpr, thresholds = roc_curve(y, y_pred)
@@ -68,6 +86,26 @@ def cal_binary_metrics(y, y_pred, ci=False, n_resamples=100):
         )
 
 def cal_qt_metrics(y_true, y_pred, ci=False, n_resamples=100):
+    """
+    Calculate quantitative metrics for model evaluation.
+
+    This function computes various correlation and regression metrics between true and predicted values.
+
+    Args:
+        y_true (array-like): Ground truth (correct) target values
+        y_pred (array-like): Estimated target values
+        ci (bool, optional): Whether to calculate confidence intervals using bootstrap. Defaults to False
+        n_resamples (int, optional): Number of bootstrap resamples for CI calculation. Defaults to 100
+
+    Returns:
+        dict: Dictionary containing the following metrics:
+            - pearsonr: Pearson correlation coefficient
+            - spearmanr: Spearman rank correlation coefficient
+            - explained_variance_score: Explained variance regression score
+            - r2_score: R^2 (coefficient of determination) regression score
+            If ci=True, returns bootstrap confidence intervals for these metrics
+    """
+
     if not ci:
         pearsonr_score = pearsonr(y_true, y_pred)[0]
         spearmanr_score = spearmanr(y_true, y_pred)[0]
@@ -122,10 +160,29 @@ def cal_qt_metrics_bootstrap(y_true, y_pred, ci_kwargs=None):
 
 def cal_binary_metrics_bootstrap(y, y_pred, ci_kwargs=None):
     """
-    ci_kwargs:
-        confidence_level=0.95
-        method="bootstrap_bca"
-        n_resamples=5000
+    Calculate binary classification metrics with bootstrap confidence intervals.
+
+    Args:
+        y (array-like): True binary labels
+        y_pred (array-like): Predicted probabilities or scores
+        ci_kwargs (dict, optional): Parameters for confidence interval calculation.
+            Supported keys:
+            - confidence_level (float): Confidence level (default: 0.95)
+            - method (str): Bootstrap method (default: "bootstrap_basic")
+            - n_resamples (int): Number of bootstrap resamples (default: 5000)
+
+    Returns:
+        dict: Dictionary containing the following metrics with confidence intervals:
+            - AUC: Area under ROC curve
+            - ACC: Accuracy
+            - Macro_F1: Macro F1 score
+            - Sensitivity: True positive rate
+            - Specificity: True negative rate
+            - APR: Average precision
+            - N: Total sample size
+            - N_case: Number of positive cases
+            - N_control: Number of negative cases
+            Each metric includes point estimate and upper/lower confidence bounds
     """
 
     ci_params = dict(confidence_level=0.95, method="bootstrap_basic", n_resamples=5000)
@@ -170,6 +227,17 @@ def cal_binary_metrics_bootstrap(y, y_pred, ci_kwargs=None):
 
 
 def APR_score(y_true, y_pred):
+    """
+    Calculate the Area under the Precision-Recall curve (APR) score.
+
+    Args:
+        y_true (array-like): True binary labels.
+        y_pred (array-like): Target scores, probability estimates or confidence values.
+
+    Returns:
+        float: Area under the precision-recall curve.
+    """
+
     precision, recall, _ = precision_recall_curve(y_true, y_pred)
     apr = auc(x=recall, y=precision)
 
@@ -177,6 +245,7 @@ def APR_score(y_true, y_pred):
 
 
 def APR_bootstrap(y_true, y_pred, **args):
+
     ci_params = dict(confidence_level=0.95, method="bootstrap_bca", n_resamples=5000)
     if args is not None:
         ci_params.update(args)
@@ -191,11 +260,23 @@ def APR_bootstrap(y_true, y_pred, **args):
     return APR, APR_CI
 
 
-
-
 def cal_DR(y_true, y_pred, ci=False, n_resamples=100):
     """
-    Require y_pred to be binary results
+    Calculate Detection Rate (DR) from true and predicted labels.
+
+    DR = TP / (FN + TP)
+
+    Args:
+        y_true: Array-like of true labels
+        y_pred: Array-like of predicted labels
+        ci: If True, calculate confidence intervals using bootstrap
+        n_resamples: Number of bootstrap resamples for CI calculation
+
+    Returns:
+        If ci=False:
+            float: Detection Rate
+        If ci=True:
+            tuple: (DR, DR_LCI, DR_UCI) containing Detection Rate and confidence intervals
     """
 
     if not ci:
@@ -213,9 +294,19 @@ def cal_DR(y_true, y_pred, ci=False, n_resamples=100):
 
 
 def cal_DR_at_FPR(y_true, y_pred, at_min_fpr, ci=False, n_resamples=100):
+    """Calculate detection rate (DR) at a given false positive rate (FPR) threshold.
+
+    Args:
+        y_true: Array of true binary labels
+        y_pred: Array of predicted probabilities
+        at_min_fpr: Target false positive rate threshold
+        ci: If True, calculate confidence intervals using bootstrap resampling
+        n_resamples: Number of bootstrap resamples for CI calculation
+
+    Returns:
+        Detection rate (float) or tuple of (DR, lower CI, upper CI) if ci=True
     """
-    y_pred should be continuous
-    """
+
     # get cutoff by fpr
     fpr, tpr, cutoff = get_cutoff_at_FPR(y_true, y_pred, at_min_fpr)
 

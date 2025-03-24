@@ -169,6 +169,29 @@ def dumbbell_plot_v2(
     - p: ggplot object
         The dumbbell plot.
 
+    Example code:
+    from ppp_prediction.plot.dumbbell import dumbbell_plot_v2
+
+    demo_data = pd.DataFrame(
+        {
+            "x": np.repeat([1, 2, 3, 4, 5], 2),
+            "y": np.random.randn(10),
+            "group_col": np.tile(["A", "B"], 5),
+        }
+    )
+    demo_data["x"] = pd.Categorical(demo_data["x"].astype(str), ["1", "2", "3", "4", "5"])
+    ref = "A"
+    new = "B"
+
+    dumbbell_plot_v2(
+        data=demo_data,
+        x="x",
+        y="y",
+        group_col="group_col",
+        ref_group=ref,
+        new_group=new,
+        figsize=(4, 3),
+    )
     """
     if color_dict is None:
         color_dict = {ref_group: "#00a5ff", new_group: "#f26c64"}
