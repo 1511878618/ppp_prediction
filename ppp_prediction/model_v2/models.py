@@ -1254,7 +1254,6 @@ def fit_SVM(
 
     return model, train_metrics, test_metrics, train_df, test_df
 
-
 from tabpfn import TabPFNClassifier, TabPFNRegressor
 
 
@@ -1270,6 +1269,7 @@ def fit_tabpfn(
     test_size=0.2,
     downsample_strategy="balance",
     device="cuda",
+    tune=False,
     **kwargs,
 ):
     # device = kwargs.get("device", "cpu")
@@ -1286,11 +1286,24 @@ def fit_tabpfn(
     N_features = len(xvar)
     if N_features > 150:
         raise ValueError("N_features should be less than 150, but", N_features)
-
+    if tune:
+        from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import (
+            AutoTabPFNClassifier,
+            AutoTabPFNRegressor,
+        )
     if y_type == "bt":
-        model = TabPFNClassifier(
-            device="cuda:0" if device == "cuda" else "cpu",
-            ignore_pretraining_limits=True,
+        model = (
+            TabPFNClassifier(
+                device="cuda:0" if device == "cuda" else "cpu",
+                ignore_pretraining_limits=True,
+                memory_saving_mode = True,
+            )
+            if not tune
+            else AutoTabPFNClassifier(
+                max_time=40,
+                device="cuda" if device == "cuda" else "cpu",
+                ignore_pretraining_limits=True,
+            )
         )
 
         train_df[label] = train_df[label].astype(int)
@@ -1314,10 +1327,19 @@ def fit_tabpfn(
                 )
 
     elif y_type == "qt":
-        model = TabPFNRegressor(
-            device="cuda:0" if device == "cuda" else "cpu",
-            ignore_pretraining_limits=True,
+        model = (
+            TabPFNRegressor(
+                device="cuda:0" if device == "cuda" else "cpu",
+                ignore_pretraining_limits=True,
+            )
+            if not tune
+            else AutoTabPFNRegressor(
+                max_time=40,
+                device="cuda" if device == "cuda" else "cpu",
+                ignore_pretraining_limits=True,
+            )
         )
+
         if train_nums > 10000:
             print(f"train_nums: {train_nums}, will downsample to 10000")
             train_df = train_df.sample(10000, random_state=42)
