@@ -1313,11 +1313,13 @@ def fit_tabpfn(
             print(f"train_nums: {train_nums}, will downsample to 10000")
             if downsample_strategy == "balance":
                 min_catagory_nums = train_df[label].value_counts().min()
+                min_catagory_nums = min(5000, min_catagory_nums) # binary job, no more than 5000
                 train_df = (
                     train_df.groupby(label)
                     .apply(lambda x: x.sample(min_catagory_nums, random_state=42))
                     .reset_index(drop=True)
                 )
+                print(f"label after downsample: {train_df[label].value_counts()}")
             elif downsample_strategy == "random":
                 train_df = train_df.sample(10000, random_state=42)
             else:

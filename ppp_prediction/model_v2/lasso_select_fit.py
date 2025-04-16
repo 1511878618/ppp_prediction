@@ -39,6 +39,65 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+def get_predict(
+    pipline: Pipeline,
+    data,
+    x_var: Union[List, str, None] = None,
+    exclude: Union[List, str, None] = None,
+    **params,
+):
+    """
+    用以对pipline的计算过程最后一步去除cov的权重
+
+    """
+    if isinstance(pipline, EnsembleModel):
+        return pipline.predict(data, exclude=exclude)
+
+    if x_var is not None:
+        feature_names_in_ = x_var
+    elif hasattr(pipline, "feature_names_in_"):
+        feature_names_in_ = pipline.feature_names_in_
+    elif hasattr(last_model, "feature_names_in_"):
+        feature_names_in_ = last_model.feature_names_in_
+    else:
+        feature_names_in_ = data.columns.tolist()
+
+    data = data[feature_names_in_]
+
+    if x_var is not None or exclude is not None:
+        # currently only supported with scaler + model
+        routed_params = process_routing(pipline, "predict", **params)
+        Xt = data
+        for _, name, transform in pipline._iter(with_final=False):
+            Xt = transform.transform(Xt, **routed_params[name].transform)
+
+        last_model = pipline.steps[-1][1]
+        assert hasattr(last_model, "coef_") and hasattr(
+            last_model, "intercept_"
+        ), "pipline last step must have coef_ and intercept_ attributes."
+
+        coef_ = last_model.coef_
+        intercept_ = last_model.intercept_
+
+        if exclude:
+            exclude = [exclude] if isinstance(exclude, str) else exclude
+            x_var = list(set(feature_names_in_) - set(exclude))
+        x_var = [x_var] if isinstance(x_var, str) else x_var
+
+        chosed_var_index = np.isin(feature_names_in_, x_var)
+
+        coef_ = coef_[chosed_var_index]
+
+        Xt = Xt[:, chosed_var_index]
+
+        if coef_.ndim == 1:
+            return Xt @ coef_ + intercept_
+        else:
+            return Xt @ coef_.T + intercept_
+    else:
+
+        return pipline.predict(data)
+
 
 class EnsembleModel(object):
     def __init__(self, models, cov=None, coef_name=None, model_name_list=None):
@@ -412,80 +471,139 @@ class EnsembleModel(object):
         else:
             return np.mean(preds, axis=0)
 
-    def fit_ensemble_weight(
-        self,
-        train_data,
-        test_data,
-        label="label",
-    ):
-        """
-        fit ensemble weight
-        """
+    # def fit_ensemble_weight(
+    #     self,
+    #     train_data,
+    #     test_data,
+    #     label="label",
+    # ):
+    #     """
+    #     fit ensemble weight
+    #     """
 
-        train_data = (
-            train_data.loc[:, self.features + [label]]
-            .copy()
-            .dropna()
-            .reset_index(drop=True)
+    #     train_data = (
+    #         train_data.loc[:, self.features + [label]]
+    #         .copy()
+    #         .dropna()
+    #         .reset_index(drop=True)
+    #     )
+    #     test_data = (
+    #         test_data.loc[:, self.features + [label]]
+    #         .copy()
+    #         .dropna()
+    #         .reset_index(drop=True)
+    #     )
+
+    #     train_dict = {}
+    #     test_dict = {}
+
+    #     exclude = self.cov
+
+    #     for model_name, model in zip(self.model_name_list, self.models):
+    #         if hasattr(model, "predict_proba"):
+    #             train_dict[model_name] = model.predict_proba(train_data[self.features])[
+    #                 :, 1
+    #             ]
+    #             test_dict[model_name] = model.predict_proba(test_data[self.features])[
+    #                 :, 1
+    #             ]
+
+    #         else:
+    #             if exclude:
+    #                 train_dict[model_name] = get_predict(
+    #                     model, train_data[self.features], exclude=exclude
+    #                 )
+    #                 test_dict[model_name] = get_predict(
+    #                     model, test_data[self.features], exclude=exclude
+    #                 )
+    #             else:
+    #                 train_dict[model_name] = model.predict(train_data[self.features])
+    #                 test_dict[model_name] = model.predict(test_data[self.features])
+
+    #     train_df = pd.DataFrame(train_dict)
+    #     test_df = pd.DataFrame(test_dict)
+    #     # print(test_data.columns)
+    #     # print(test_df)
+    #     train_df["label"] = train_data[label]
+    #     test_df["label"] = test_data[label]
+
+    #     X_var = self.model_name_list
+    #     print(f"train shape: {train_df.shape}, test shape is {test_df.shape}")
+
+    #     weight_model, train_metrics, test_metrics, *_ = fit_best_model(
+    #         train_df=train_df,
+    #         test_df=test_df,
+    #         X_var=X_var,
+    #         y_var="label",
+    #         method_list=["Lasso"],
+    #         cv=5,
+    #     )
+    #     # weight_model.features = X_var
+    #     self.weight_model = weight_model
+    #     return weight_model, train_metrics, test_metrics
+
+from ppp_prediction.MultiOmicsDiseasePrediction import run_glmnet, load_glmnet_bootstrap, GLMNETBootsrapResult
+from joblib import Parallel, delayed
+import matplotlib.gridspec as gridspec
+import json 
+def fit_lasso_model_bootstrap_by_glmnet(
+        train, xvar,label, method_list=['Lasso'],test=None, cv=10,verbose=1,n_resample=100,n_jobs=4,save_dir=None,test_size=0.3
+):
+        bootstrap_output_folder = save_dir
+        # generate json_data 
+        tmp_train_feather_dir = bootstrap_output_folder / "train.feather"
+        bootstrap_model_name = "bootstrap"
+        config_json = {
+            bootstrap_model_name: {
+                "feature": xvar if isinstance(xvar, list) else [xvar],
+                "label": label,
+                "time": None,
+                "cov": None,
+                "family": "binomial",
+                "lambda": None,
+                "type_measure": "auc",
+                "cv": 10,
+            }
+        }
+        json_dir = bootstrap_output_folder / "train_config.json"
+        json.dump(config_json, open(json_dir, "w"))
+        # train[[*xvar, ]]
+        train.to_feather(tmp_train_feather_dir)
+
+        res = Parallel(n_jobs=n_jobs)(
+            delayed(run_glmnet)(
+                json_dir=json_dir,
+                train_dir=tmp_train_feather_dir,
+                out_dir=bootstrap_output_folder / f"{i}",
+                test_dir = None,
+                seed=i,
+            )
+            for i in range(1, n_resample + 1)
         )
-        test_data = (
-            test_data.loc[:, self.features + [label]]
-            .copy()
-            .dropna()
-            .reset_index(drop=True)
-        )
 
-        train_dict = {}
-        test_dict = {}
+        # plot bootstrap
+        res = load_glmnet_bootstrap(bootstrap_output_folder)
+        coef = res[bootstrap_model_name]["coef_df"]
+        ## save
+        coef.to_csv(bootstrap_output_folder / "bootstrap_coef_df.csv", index=True)
 
-        exclude = self.cov
+        ## plot
+        fig = plt.figure(figsize=(15, 10))
+        gs = gridspec.GridSpec(2, 5, hspace=0.5, wspace=0.5, figure=fig)
 
-        for model_name, model in zip(self.model_name_list, self.models):
-            if hasattr(model, "predict_proba"):
-                train_dict[model_name] = model.predict_proba(train_data[self.features])[
-                    :, 1
-                ]
-                test_dict[model_name] = model.predict_proba(test_data[self.features])[
-                    :, 1
-                ]
+        ax1 = fig.add_subplot(gs[0, 0:2])
+        ax2 = fig.add_subplot(gs[0, 2:4])
+        ax3 = fig.add_subplot(gs[:, 4:])
+        ax4 = fig.add_subplot(gs[1, :4])
 
-            else:
-                if exclude:
-                    train_dict[model_name] = get_predict(
-                        model, train_data[self.features], exclude=exclude
-                    )
-                    test_dict[model_name] = get_predict(
-                        model, test_data[self.features], exclude=exclude
-                    )
-                else:
-                    train_dict[model_name] = model.predict(train_data[self.features])
-                    test_dict[model_name] = model.predict(test_data[self.features])
-
-        train_df = pd.DataFrame(train_dict)
-        test_df = pd.DataFrame(test_dict)
-        # print(test_data.columns)
-        # print(test_df)
-        train_df["label"] = train_data[label]
-        test_df["label"] = test_data[label]
-
-        X_var = self.model_name_list
-        print(f"train shape: {train_df.shape}, test shape is {test_df.shape}")
-
-        weight_model, train_metrics, test_metrics, *_ = fit_best_model(
-            train_df=train_df,
-            test_df=test_df,
-            X_var=X_var,
-            y_var="label",
-            method_list=["Lasso"],
-            cv=5,
-        )
-        # weight_model.features = X_var
-        self.weight_model = weight_model
-        return weight_model, train_metrics, test_metrics
-    
-
-
-
+        glmnet_bootsrap_result = GLMNETBootsrapResult(coef)
+        glmnet_bootsrap_result._show_models_coeffients(axes=[ax1, ax2])
+        glmnet_bootsrap_result._plot_top_k_features(ax=ax3)
+        ax3.yaxis.set_label_position("right")
+        ax3.yaxis.tick_right()
+        glmnet_bootsrap_result.coef_barplot(ax=ax4)
+        fig.savefig(bootstrap_output_folder / "bootstrap_coef_plot.png")
+        return glmnet_bootsrap_result 
 
 def fit_best_model_bootstrap_v2(
     train,
@@ -594,10 +712,6 @@ def fit_best_model_bootstrap_v2(
     )
     test_metrics = {f"test_{k}": v for k, v in test_metrics.items()}
     return model, train_metrics, test_metrics, train, test
-
-
-
-
 
 
 def BootstrapLassoSelectModelAndFit(

@@ -932,9 +932,9 @@ class EnsembleModel(object):
 
 def fit_best_model_bootstrap(
     train_df,
-    test_df,
     X_var,
     y_var,
+    test_df=None,
     method_list=None,
     cv=10,
     verbose=1,

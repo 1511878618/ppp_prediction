@@ -756,6 +756,13 @@ def cal_corr_v3(
                     },
                 )
             ).reset_index(drop=False, names="var")
+            if not return_all:
+
+                res_df = res_df[
+                    res_df["var"].str.contains(
+                        "|".join([formatted_var_dict["x"]]), case=False, na=False
+                    )
+                ]
 
             res_df["var"] = res_df["var"].apply(
                 lambda x: ReverseColumnName(x, dfFormat)
@@ -809,11 +816,11 @@ def cal_corr_v3(
                 ["x", "y", "cov"],
             ).reset_index()
 
-            if not return_all:
+            # if not return_all:
 
-                res_df = res_df[
-                    res_df["var"].str.contains("|".join([x]), case=False, na=False)
-                ]
+            #     res_df = res_df[
+            #         res_df["var"].str.contains("|".join([x]), case=False, na=False)
+            #     ]
 
             return res_df
 

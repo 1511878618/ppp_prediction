@@ -3,6 +3,101 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from adjustText import adjust_text
+import matplotlib.colors as mcolors
+def plot_vocano(
+    data,
+    x,
+    y,
+    pval,  # pvalue column name
+    cutoff=0.05,  # cutoff for pvalue
+    hue=None,
+    cmap=None,
+    vmin=None,
+    vmax=None,
+    center=None,
+    ax=None,
+):
+    if cmap is None:
+        cmap = mcolors.LinearSegmentedColormap.from_list(
+            name="my",
+            colors=[
+                "#337bb7",
+                "#4f99c7",
+                "#a8d0e4",
+                "#d1e6f1",
+                "#fdd5c0",
+                "#ef9c7b",
+                "#de6e58",
+                "#b2182e",
+            ],
+        )
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 5))
+
+    c_plt_data = data.sort_values(y, ascending=False).copy()
+    c_plt_data["mlog10p"] = (-np.log10(c_plt_data[pval])).clip(0, 300)
+
+    vmin = vmin if vmin is not None else np.quantile(c_plt_data[y], 0.1)
+    vmax = vmax if vmax is not None else np.quantile(c_plt_data[y], 0.9)
+    center = center if center is not None else 0
+    hue = y if hue is None else hue
+
+    sns.scatterplot(
+        x=y,
+        y="mlog10p",
+        hue=y,
+        palette=cmap,
+        hue_norm=mcolors.TwoSlopeNorm(vmin=vmin, vcenter=center, vmax=vmax),
+        data=c_plt_data.query(f"{pval} < {cutoff}"),
+        s=40,
+        lw=0.25,
+        ec="black",
+        legend=False,
+    )
+    sns.scatterplot(
+        x=y,
+        y="mlog10p",
+        color="#ebebeb",
+        ec="#ebebeb",
+        data=c_plt_data.query(f"{pval} > {cutoff}"),
+        s=40,
+        alpha=1,
+        legend=False,
+    )
+
+    annotate_df = pd.concat(
+        [
+            # c_plt_data.sort_values("mlog10p", ascending=False).head(5),
+            c_plt_data.query(f"{pval} < {cutoff} and {y} > {center}")
+            .sort_values("coef", ascending=False)
+            .head(5),
+            # c_plt_data.sort_values("mlog10p", ascending=True).head(5),
+            c_plt_data.query(f"{pval} < {cutoff} and {y} < {center}")
+            .sort_values("coef", ascending=True)
+            .head(5),
+        ]
+    ).drop_duplicates()
+
+    texts = [
+        ax.text(
+            row[y],
+            row["mlog10p"],
+            row[x],
+            ha="center",
+            va="center",
+            fontsize=8,
+            color="black",
+        )
+        for i, row in annotate_df.iterrows()
+    ]
+
+    adjust_text(
+        texts,  # expand text bounding boxes by 1.2 fold in x direction and 2 fold in y direction
+        # ensure the labeling is clear by adding arrows
+    )
+    return ax
+
 def VolcanoPlot(
     data,
     x,

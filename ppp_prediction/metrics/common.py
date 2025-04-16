@@ -32,7 +32,6 @@ from sklearn.metrics import (
 from scipy.stats import pearsonr, spearmanr
 import scipy.stats as ss
 from .utils import find_best_cutoff
-from .ci import bootstrap_ci
 from sklearn.metrics import confusion_matrix
 from ppp_prediction.metrics.ci import bootstrap_ci
 from sklearn.metrics import roc_curve
