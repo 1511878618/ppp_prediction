@@ -35,6 +35,14 @@ import time
 from tqdm.rich import tqdm
 import warnings
 
+from ppp_prediction.MultiOmicsDiseasePrediction import (
+    run_glmnet,
+    load_glmnet_bootstrap,
+    GLMNETBootsrapResult,
+)
+from joblib import Parallel, delayed
+import matplotlib.gridspec as gridspec
+import json
 
 warnings.filterwarnings("ignore")
 
@@ -542,10 +550,6 @@ class EnsembleModel(object):
     #     self.weight_model = weight_model
     #     return weight_model, train_metrics, test_metrics
 
-from ppp_prediction.MultiOmicsDiseasePrediction import run_glmnet, load_glmnet_bootstrap, GLMNETBootsrapResult
-from joblib import Parallel, delayed
-import matplotlib.gridspec as gridspec
-import json 
 def fit_lasso_model_bootstrap_by_glmnet(
         train, xvar,label, method_list=['Lasso'],test=None, cv=10,verbose=1,n_resample=100,n_jobs=4,save_dir=None,test_size=0.3
 ):
@@ -603,6 +607,12 @@ def fit_lasso_model_bootstrap_by_glmnet(
         ax3.yaxis.tick_right()
         glmnet_bootsrap_result.coef_barplot(ax=ax4)
         fig.savefig(bootstrap_output_folder / "bootstrap_coef_plot.png")
+
+        # remove tmp files
+        try:
+            tmp_train_feather_dir.unlink()
+        except:
+            pass 
         return glmnet_bootsrap_result 
 
 def fit_best_model_bootstrap_v2(
