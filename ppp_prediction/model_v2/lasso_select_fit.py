@@ -553,11 +553,11 @@ class EnsembleModel(object):
 def fit_lasso_model_bootstrap_by_glmnet(
         train, xvar,label, method_list=['Lasso'],test=None, cv=10,verbose=1,n_resample=100,n_jobs=4,save_dir=None,test_size=0.3
 ):
-        bootstrap_output_folder = save_dir
-        # generate json_data 
-        tmp_train_feather_dir = bootstrap_output_folder / "train.feather"
-        bootstrap_model_name = "bootstrap"
-        config_json = {
+    bootstrap_output_folder = save_dir
+    # generate json_data
+    tmp_train_feather_dir = bootstrap_output_folder / "train.feather"
+    bootstrap_model_name = "bootstrap"
+    config_json = {
             bootstrap_model_name: {
                 "feature": xvar if isinstance(xvar, list) else [xvar],
                 "label": label,
@@ -569,12 +569,12 @@ def fit_lasso_model_bootstrap_by_glmnet(
                 "cv": 10,
             }
         }
-        json_dir = bootstrap_output_folder / "train_config.json"
-        json.dump(config_json, open(json_dir, "w"))
-        # train[[*xvar, ]]
-        train.to_feather(tmp_train_feather_dir)
+    json_dir = bootstrap_output_folder / "train_config.json"
+    json.dump(config_json, open(json_dir, "w"))
+    # train[[*xvar, ]]
+    train.to_feather(tmp_train_feather_dir)
 
-        res = Parallel(n_jobs=n_jobs)(
+    res = Parallel(n_jobs=n_jobs)(
             delayed(run_glmnet)(
                 json_dir=json_dir,
                 train_dir=tmp_train_feather_dir,
@@ -585,35 +585,35 @@ def fit_lasso_model_bootstrap_by_glmnet(
             for i in range(1, n_resample + 1)
         )
 
-        # plot bootstrap
-        res = load_glmnet_bootstrap(bootstrap_output_folder)
-        coef = res[bootstrap_model_name]["coef_df"]
-        ## save
-        coef.to_csv(bootstrap_output_folder / "bootstrap_coef_df.csv", index=True)
+    # plot bootstrap
+    res = load_glmnet_bootstrap(bootstrap_output_folder)
+    coef = res[bootstrap_model_name]["coef_df"]
+    ## save
+    # coef.to_csv(bootstrap_output_folder / "bootstrap_coef_df.csv", index=True)
 
-        ## plot
-        fig = plt.figure(figsize=(15, 10))
-        gs = gridspec.GridSpec(2, 5, hspace=0.5, wspace=0.5, figure=fig)
+    ## plot
+    fig = plt.figure(figsize=(15, 10))
+    gs = gridspec.GridSpec(2, 5, hspace=0.5, wspace=0.5, figure=fig)
 
-        ax1 = fig.add_subplot(gs[0, 0:2])
-        ax2 = fig.add_subplot(gs[0, 2:4])
-        ax3 = fig.add_subplot(gs[:, 4:])
-        ax4 = fig.add_subplot(gs[1, :4])
+    ax1 = fig.add_subplot(gs[0, 0:2])
+    ax2 = fig.add_subplot(gs[0, 2:4])
+    ax3 = fig.add_subplot(gs[:, 4:])
+    ax4 = fig.add_subplot(gs[1, :4])
 
-        glmnet_bootsrap_result = GLMNETBootsrapResult(coef)
-        glmnet_bootsrap_result._show_models_coeffients(axes=[ax1, ax2])
-        glmnet_bootsrap_result._plot_top_k_features(ax=ax3)
-        ax3.yaxis.set_label_position("right")
-        ax3.yaxis.tick_right()
-        glmnet_bootsrap_result.coef_barplot(ax=ax4)
-        fig.savefig(bootstrap_output_folder / "bootstrap_coef_plot.png")
+    glmnet_bootsrap_result = GLMNETBootsrapResult(coef)
+    glmnet_bootsrap_result._show_models_coeffients(axes=[ax1, ax2])
+    glmnet_bootsrap_result._plot_top_k_features(ax=ax3)
+    ax3.yaxis.set_label_position("right")
+    ax3.yaxis.tick_right()
+    glmnet_bootsrap_result.coef_barplot(ax=ax4)
+    fig.savefig(bootstrap_output_folder / "bootstrap_coef_plot.png")
 
-        # remove tmp files
-        try:
-            tmp_train_feather_dir.unlink()
-        except:
-            pass 
-        return glmnet_bootsrap_result 
+    # remove tmp files
+    try:
+        tmp_train_feather_dir.unlink()
+    except:
+        pass
+    return glmnet_bootsrap_result
 
 def fit_best_model_bootstrap_v2(
     train,
