@@ -21,7 +21,7 @@ from sklearn.utils._metadata_requests import process_routing
 import numpy as np
 from ppp_prediction.model_v2.models import fit_best_model_v2
 from ppp_prediction.metrics import cal_binary_metrics
-
+from ppp_prediction.plot.utils import save_fig
 import logging
 from functools import partial
 from ppp_prediction.model_v2.models import (
@@ -606,7 +606,9 @@ def fit_lasso_model_bootstrap_by_glmnet(
     ax3.yaxis.set_label_position("right")
     ax3.yaxis.tick_right()
     glmnet_bootsrap_result.coef_barplot(ax=ax4)
-    fig.savefig(bootstrap_output_folder / "bootstrap_coef_plot.png")
+    # fig.savefig(bootstrap_output_folder / "bootstrap_coef_plot.png")
+
+    save_fig(bootstrap_output_folder / "bootstrap_coef_plot",dpi=300)
 
     # remove tmp files
     try:

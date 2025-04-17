@@ -387,7 +387,7 @@ class GLMNETBootsrapResult(object):
         if len(xticks) > 100:
             # ax2.set_xticks([""] * len(xticks))
             # not show tickslabel
-            ax2.set_xticklabels([""] * len(xticks))
+            ax2.set_xticklabels([])
         else:
             ax2.set_xticklabels(ax2.get_xticklabels(), rotation=90)
         if axes is None:
