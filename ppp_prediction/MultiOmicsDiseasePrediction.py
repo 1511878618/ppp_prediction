@@ -585,8 +585,8 @@ def run_glmnet(
     if shutil.which("run_glmnet.R") is None:
         raise ValueError("run_glmnet.R is not in the PATH")
 
-    # check file exists or not 
-    if Path(out_dir / seed /"bootstrap" / "res.rds").exists:
+    # check file exists or not
+    if Path(f"{out_dir}/{seed}/bootstrap/res.rds").exists:
         return None
 
     cmd = f"run_glmnet.R --json {json_dir} --train {train_dir} --out {out_dir}"
