@@ -73,38 +73,48 @@ def get_predict_from_tb_dl_with_df(
         pred = np.concatenate(pred)
     return pred
 
+import re
 
 def get_predict_v2_from_df(model, data, x_var, **kwargs):
     """
     Use this to get prediction from model and data
     merge by idx
     """
-    no_na_data = data[x_var].dropna().copy()
 
-    if isinstance(model, xgb.core.Booster):
-        no_na_data_DM = xgb.DMatrix(no_na_data)
-
+    # check TabPFN in model._class__.__name__ ignoring the capital letter or not
+    modelName = model.__class__.__name__
+    if re.match(".*TabPFN.*", modelName) and modelName != "TunedTabPFNClassifier":
         if hasattr(model, "predict_proba"):
-            no_na_data["pred"] = model.predict_proba(no_na_data_DM)[:, 1]
+            pred = model.predict_proba(data[x_var])[:, 1]
         else:
-            no_na_data["pred"] = model.predict(no_na_data_DM)
-    elif hasattr(model, "col_to_stype"):
-        no_na_data["pred"] = get_predict_from_tb_dl_with_df(
-            df=no_na_data, model=model, x_var=x_var, **kwargs
-        )
+            pred = model.predict(data[x_var])
 
     else:
+        no_na_data = data[x_var].dropna().copy()
+        if isinstance(model, xgb.core.Booster):
+            no_na_data_DM = xgb.DMatrix(no_na_data)
 
-        if hasattr(model, "predict_proba"):
-            no_na_data["pred"] = model.predict_proba(no_na_data)[:, 1]
+            if hasattr(model, "predict_proba"):
+                no_na_data["pred"] = model.predict_proba(no_na_data_DM)[:, 1]
+            else:
+                no_na_data["pred"] = model.predict(no_na_data_DM)
+        elif hasattr(model, "col_to_stype"):
+            no_na_data["pred"] = get_predict_from_tb_dl_with_df(
+                df=no_na_data, model=model, x_var=x_var, **kwargs
+            )
+
         else:
-            no_na_data["pred"] = model.predict(no_na_data)
+            if hasattr(model, "predict_proba"):
+                no_na_data["pred"] = model.predict_proba(no_na_data)[:, 1]
+            else:
+                no_na_data["pred"] = model.predict(no_na_data)
 
-    return (
-        data[[]]
-        .merge(no_na_data[["pred"]], left_index=True, right_index=True, how="left")
-        .values.flatten()
-    )
+        pred = (
+            data[[]]
+            .merge(no_na_data[["pred"]], left_index=True, right_index=True, how="left")
+            .values.flatten()
+        )
+    return pred
 
 
 def fit_tabular_dl(
@@ -1257,16 +1267,89 @@ def fit_SVM(
 from tabpfn import TabPFNClassifier, TabPFNRegressor
 
 
+def fit_rfpfn(
+    xvar,
+    train,
+    label,
+    y_type="bt",
+    downsample_strategy="balance",
+    device="cuda",
+    **kwargs,
+):
+    # device = kwargs.get("device", "cpu")
+
+    train_df = train[xvar + [label]].copy().dropna().reset_index(drop=True)
+
+    train_nums = len(train_df)
+    N_features = len(xvar)
+    if N_features > 150:
+        raise ValueError("N_features should be less than 150, but", N_features)
+    from tabpfn_extensions.rf_pfn import (
+        RandomForestTabPFNClassifier,
+        RandomForestTabPFNRegressor,
+    )
+
+    clf_base = (
+        TabPFNClassifier(
+            device="cuda:0" if device == "cuda" else "cpu",
+        )
+        if y_type == "bt"
+        else TabPFNRegressor(
+            device="cuda:0" if device == "cuda" else "cpu",
+        )
+    )
+
+    RFTabPFNClass = (
+        RandomForestTabPFNClassifier if y_type == "bt" else RandomForestTabPFNRegressor
+    )
+    model = RFTabPFNClass(
+        tabpfn=clf_base,
+        n_estimators=100,
+        max_depth=5,  # Use shallow trees for faster training
+    )
+
+    if y_type == "bt":
+        train_df[label] = train_df[label].astype(int)
+
+        if train_nums > 10000:
+            print(f"train_nums: {train_nums}, will downsample to 10000")
+            if downsample_strategy == "balance":
+                min_catagory_nums = train_df[label].value_counts().min()
+                min_catagory_nums = min(
+                    5000, min_catagory_nums
+                )  # binary job, no more than 5000
+                train_df = (
+                    train_df.groupby(label)
+                    .apply(lambda x: x.sample(min_catagory_nums, random_state=42))
+                    .reset_index(drop=True)
+                )
+                print(f"label after downsample: {train_df[label].value_counts()}")
+            elif downsample_strategy == "random":
+                train_df = train_df.sample(10000, random_state=42)
+            else:
+                raise ValueError(
+                    "downsample_strategy should be balance or random, but ",
+                    downsample_strategy,
+                )
+
+    elif y_type == "qt":
+        if train_nums > 10000:
+            print(f"train_nums: {train_nums}, will downsample to 10000")
+            train_df = train_df.sample(10000, random_state=42)
+
+    else:
+        raise ValueError("y_type should be bt or qt, but", y_type)
+
+    model.fit(train_df[xvar], train_df[label])
+
+    return (model,)
+
+
 def fit_tabpfn(
     xvar,
     train,
     label,
-    test=None,
-    cv=10,
-    verbose=1,
     y_type="bt",
-    need_scale=False,
-    test_size=0.2,
     downsample_strategy="balance",
     device="cuda",
     tune=False,
@@ -1275,13 +1358,7 @@ def fit_tabpfn(
     # device = kwargs.get("device", "cpu")
 
     train_df = train[xvar + [label]].copy().dropna().reset_index(drop=True)
-    if test is not None:
-        test_df = test[xvar + [label]].copy().dropna()
-    else:
-        print("No test data provided, will split the train data into train and test")
-        train_df, test_df = train_test_split(
-            train_df, test_size=test_size, random_state=42
-        )
+
     train_nums = len(train_df)
     N_features = len(xvar)
     if N_features > 150:
@@ -1296,7 +1373,7 @@ def fit_tabpfn(
             TabPFNClassifier(
                 device="cuda:0" if device == "cuda" else "cpu",
                 ignore_pretraining_limits=True,
-                memory_saving_mode = True,
+                memory_saving_mode=True,
             )
             if not tune
             else AutoTabPFNClassifier(
@@ -1307,13 +1384,14 @@ def fit_tabpfn(
         )
 
         train_df[label] = train_df[label].astype(int)
-        test_df[label] = test_df[label].astype(int)
 
         if train_nums > 10000:
             print(f"train_nums: {train_nums}, will downsample to 10000")
             if downsample_strategy == "balance":
                 min_catagory_nums = train_df[label].value_counts().min()
-                min_catagory_nums = min(5000, min_catagory_nums) # binary job, no more than 5000
+                min_catagory_nums = min(
+                    5000, min_catagory_nums
+                )  # binary job, no more than 5000
                 train_df = (
                     train_df.groupby(label)
                     .apply(lambda x: x.sample(min_catagory_nums, random_state=42))
@@ -1351,31 +1429,4 @@ def fit_tabpfn(
 
     model.fit(train_df[xvar], train_df[label])
 
-    # evaluate
-    if hasattr(model, "predict_proba"):
-        train_pred = model.predict_proba(train_df[xvar])[:, 1]
-        test_pred = model.predict_proba(test_df[xvar])[:, 1]
-    else:
-        train_pred = model.predict(train_df[xvar])
-        test_pred = model.predict(test_df[xvar])
-
-    train_df[f"{label}_pred"] = train_pred
-    test_df[f"{label}_pred"] = test_pred
-
-    train_to_cal = train_df[[label, f"{label}_pred"]].dropna()
-    test_to_cal = test_df[[label, f"{label}_pred"]].dropna()
-
-    if y_type == "bt":
-        train_metrics = cal_binary_metrics(
-            train_to_cal[label], train_to_cal[f"{label}_pred"]
-        )
-        test_metrics = cal_binary_metrics(
-            test_to_cal[label], test_to_cal[f"{label}_pred"]
-        )
-    elif y_type == "qt":
-        train_metrics = cal_qt_metrics(
-            train_to_cal[label], train_to_cal[f"{label}_pred"]
-        )
-        test_metrics = cal_qt_metrics(test_to_cal[label], test_to_cal[f"{label}_pred"])
-
-    return model, train_metrics, test_metrics, train_df, test_df
+    return (model,)
