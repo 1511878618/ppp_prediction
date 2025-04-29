@@ -83,7 +83,7 @@ def get_predict_v2_from_df(model, data, x_var, **kwargs):
 
     # check TabPFN in model._class__.__name__ ignoring the capital letter or not
     modelName = model.__class__.__name__
-    if re.match(".*TabPFN.*", modelName) and modelName != "TunedTabPFNClassifier":
+    if re.match(".*TabPFN.*", modelName) and modelName not in ["TunedTabPFNClassifier", "AutoTabPFN"] :
         batch_size = kwargs.get("batch_size", None)
         if batch_size is None:
             if hasattr(model, "predict_proba"):
