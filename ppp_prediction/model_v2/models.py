@@ -84,10 +84,20 @@ def get_predict_v2_from_df(model, data, x_var, **kwargs):
     # check TabPFN in model._class__.__name__ ignoring the capital letter or not
     modelName = model.__class__.__name__
     if re.match(".*TabPFN.*", modelName) and modelName != "TunedTabPFNClassifier":
-        if hasattr(model, "predict_proba"):
-            pred = model.predict_proba(data[x_var])[:, 1]
+        batch_size = kwargs.get("batch_size", None)
+        if batch_size is None:
+            if hasattr(model, "predict_proba"):
+                pred = model.predict_proba(data[x_var])[:, 1]
+            else:
+                pred = model.predict(data[x_var])
         else:
-            pred = model.predict(data[x_var])
+            total_nums = len(data)
+            # batch pred and concat
+            batch_res = []
+            for i in tqdm(range(math.ceil(total_nums / batch_size))):
+                batch = data[x_var].iloc[i * batch_size : (i + 1) * batch_size]
+                batch_res.append(get_predict_v2_from_df(model, batch, x_var, **kwargs))
+            pred = np.concatenate(batch_res)
 
     else:
         no_na_data = data[x_var].dropna().copy()
